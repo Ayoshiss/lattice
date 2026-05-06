@@ -4,6 +4,7 @@ import { Connection, Keypair, SystemProgram, LAMPORTS_PER_SOL, PublicKey } from 
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { AmmPanel } from "@/components/AmmPanel";
 import { LatticePanel } from "@/components/LatticePanel";
+import { AgentPanel } from "@/components/AgentPanel";
 import { LogEntry } from "@/components/LogStream";
 import { runSimulation, DEFAULT_PARAMS, toDisplay } from "@/lib/sandwich";
 
@@ -370,13 +371,13 @@ export default function Demo() {
             <div className="flex-1 h-px bg-[#1e1e32] mx-2" />
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-[#00d4ff22] border border-[#00d4ff55] flex items-center justify-center text-[10px] font-mono font-bold text-[#00d4ff]">3</span>
-              <span className="text-xs font-mono text-[#e0e0f0]">See the difference</span>
+              <span className="text-xs font-mono text-[#e0e0f0]">Watch the AI agent trade</span>
             </div>
           </div>
         </div>
 
         {/* ── Split panel ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-6 pt-6 max-w-7xl mx-auto">
           <AmmPanel
             result={result}
             logs={ammLogs}
@@ -391,6 +392,18 @@ export default function Demo() {
             txSig={txSig}
             onSubmit={runLattice}
           />
+        </div>
+
+        {/* ── AI Agent Panel ──────────────────────────────────────────────── */}
+        <div className="px-6 pt-6 pb-2 max-w-7xl mx-auto">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-[#1e1e32]" />
+            <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest px-3">
+              Step 3 — autonomous AI agent
+            </div>
+            <div className="flex-1 h-px bg-[#1e1e32]" />
+          </div>
+          <AgentPanel />
         </div>
 
         {/* ── Verdict card (shown after both run) ──────────────────────────── */}
