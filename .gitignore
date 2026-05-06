@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.yarn/cache
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env*.local
+
+# Solana / Anchor
+target/
+**/*.so
+**/*.keypair.json
+
+# Demo keys (devnet only — never commit real keys)
+keys/*.json
+
+# Logs
+*.log
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

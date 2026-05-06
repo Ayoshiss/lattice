@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #080810;
+  --surface: #0f0f1a;
+  --border: #1e1e32;
+  --cyan: #00d4ff;
+  --green: #00ff88;
+  --red: #ff3b5c;
+  --text: #e0e0f0;
+  --muted: #4a4a6a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Grid scan line overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 212, 255, 0.012) 2px,
+    rgba(0, 212, 255, 0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Glowing border utility */
+.glow-cyan  { box-shadow: 0 0 0 1px #00d4ff44, 0 0 24px #00d4ff22; }
+.glow-green { box-shadow: 0 0 0 1px #00ff8844, 0 0 24px #00ff8822; }
+.glow-red   { box-shadow: 0 0 0 1px #ff3b5c44, 0 0 24px #ff3b5c22; }
+
+/* Number counter flash */
+@keyframes flash-green {
+  0%   { color: #ffffff; text-shadow: 0 0 12px #00ff88; }
+  100% { color: #00ff88; text-shadow: none; }
+}
+@keyframes flash-red {
+  0%   { color: #ffffff; text-shadow: 0 0 12px #ff3b5c; }
+  100% { color: #ff3b5c; text-shadow: none; }
+}
+.flash-green { animation: flash-green 0.6s ease-out forwards; }
+.flash-red   { animation: flash-red 0.6s ease-out forwards; }
+
+/* Blinking cursor */
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+.cursor::after {
+  content: '█';
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  font-size: 0.85em;
+}
+
+/* Panel slide-in */
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.slide-up { animation: slideUp 0.4s ease-out both; }
+
+/* MEV meter fill */
+@keyframes fillBar {
+  from { width: 0%; }
+}
+.fill-bar { animation: fillBar 1.2s cubic-bezier(0.22,1,0.36,1) both; }

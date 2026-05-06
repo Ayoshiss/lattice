@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lattice-web",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["--cwd", "/Users/ayoshiss/Downloads/lattice/web", "dev"],
+      "port": 3000
+    }
+  ]
+}

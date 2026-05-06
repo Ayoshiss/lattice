@@ -1,0 +1,456 @@
+{
+  "address": "AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV",
+  "metadata": {
+    "name": "lattice",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "initializePool",
+      "discriminator": [
+        95,
+        180,
+        10,
+        172,
+        84,
+        174,
+        232,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "tokenInMint"
+        },
+        {
+          "name": "tokenOutMint"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "batchWindowSlots",
+          "type": "u64"
+        },
+        {
+          "name": "revealWindowSlots",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "commitIntent",
+      "discriminator": [
+        175,
+        152,
+        13,
+        10,
+        40,
+        234,
+        201,
+        8
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "payerTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "commitHash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "isBuy",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "revealIntent",
+      "discriminator": [
+        187,
+        120,
+        180,
+        243,
+        18,
+        0,
+        4,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenIn",
+          "type": "pubkey"
+        },
+        {
+          "name": "tokenOut",
+          "type": "pubkey"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "limitPrice",
+          "type": "u64"
+        },
+        {
+          "name": "salt",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clearBatch",
+      "discriminator": [
+        194,
+        215,
+        191,
+        209,
+        220,
+        20,
+        81,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "settle",
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "slashUnrevealed",
+      "discriminator": [
+        255,
+        64,
+        98,
+        195,
+        123,
+        40,
+        38,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        },
+        {
+          "name": "offender",
+          "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "slotIndex",
+          "type": "u32"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BatchAuctionPool",
+      "discriminator": [
+        32,
+        7,
+        114,
+        58,
+        211,
+        14,
+        158,
+        166
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "CommitWindowClosed",
+      "msg": "Commit window is closed"
+    },
+    {
+      "code": 6001,
+      "name": "RevealWindowClosed",
+      "msg": "Reveal window is closed"
+    },
+    {
+      "code": 6002,
+      "name": "BatchNotCleared",
+      "msg": "Batch clearing has not started yet"
+    },
+    {
+      "code": 6003,
+      "name": "HashMismatch",
+      "msg": "Commitment hash mismatch"
+    },
+    {
+      "code": 6004,
+      "name": "AlreadyRevealed",
+      "msg": "Intent slot is already revealed"
+    },
+    {
+      "code": 6005,
+      "name": "SlotEmpty",
+      "msg": "Intent slot was never committed"
+    },
+    {
+      "code": 6006,
+      "name": "OrderBookFull",
+      "msg": "Order book is full"
+    },
+    {
+      "code": 6007,
+      "name": "AlreadyCleared",
+      "msg": "Batch has already been cleared"
+    },
+    {
+      "code": 6008,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6009,
+      "name": "NoCross",
+      "msg": "No crossing orders"
+    },
+    {
+      "code": 6010,
+      "name": "SlashTooEarly",
+      "msg": "Slash window has not opened yet"
+    }
+  ],
+  "types": [
+    {
+      "name": "BatchAuctionPool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenInMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenOutMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "phase",
+            "type": {
+              "defined": {
+                "name": "PoolPhase"
+              }
+            }
+          },
+          {
+            "name": "phaseStartSlot",
+            "type": "u64"
+          },
+          {
+            "name": "batchWindowSlots",
+            "type": "u64"
+          },
+          {
+            "name": "revealWindowSlots",
+            "type": "u64"
+          },
+          {
+            "name": "orderCount",
+            "type": "u32"
+          },
+          {
+            "name": "orders",
+            "type": {
+              "array": [
+                {
+                  "defined": {
+                    "name": "OrderSlot"
+                  }
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "clearingPrice",
+            "type": "u64"
+          },
+          {
+            "name": "matchedVolume",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolPhase",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commit"
+          },
+          {
+            "name": "Reveal"
+          },
+          {
+            "name": "Cleared"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderSlot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "commitHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "payer",
+            "type": "pubkey"
+          },
+          {
+            "name": "commitSlot",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "isBuy",
+            "type": "bool"
+          },
+          {
+            "name": "limitPrice",
+            "type": "u64"
+          },
+          {
+            "name": "revealed",
+            "type": "bool"
+          },
+          {
+            "name": "filled",
+            "type": "bool"
+          },
+          {
+            "name": "fillAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}
