@@ -17,7 +17,7 @@ pub enum LatticeError {
     #[msg("Intent slot is already revealed")]
     AlreadyRevealed,
 
-    #[msg("Intent slot was never committed")]
+    #[msg("Intent slot was never committed, or insufficient remaining_accounts")]
     SlotEmpty,
 
     #[msg("Order book is full — max pending orders reached")]

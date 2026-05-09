@@ -1,68 +1,74 @@
 use anchor_lang::prelude::*;
-use crate::constants::POOL_SEED;
+use crate::constants::{POOL_SEED, PHASE_REVEAL, PHASE_CLEARED};
 use crate::error::LatticeError;
-use crate::state::{BatchAuctionPool, PoolPhase};
+use crate::state::BatchAuctionPool;
 
 #[derive(Accounts)]
 pub struct ClearBatch<'info> {
     #[account(
         mut,
-        seeds = [POOL_SEED, pool.token_in_mint.as_ref(), pool.token_out_mint.as_ref()],
-        bump = pool.bump,
+        seeds = [POOL_SEED, token_in_mint.key().as_ref(), token_out_mint.key().as_ref()],
+        bump,
     )]
-    pub pool: Box<Account<'info, BatchAuctionPool>>,
+    pub pool: AccountLoader<'info, BatchAuctionPool>,
 
-    /// Anyone can call ClearBatch once the reveal window closes (keeper bot).
+    /// CHECK: used in pool PDA seed derivation.
+    pub token_in_mint:  UncheckedAccount<'info>,
+    /// CHECK: used in pool PDA seed derivation.
+    pub token_out_mint: UncheckedAccount<'info>,
+
+    /// Anyone can call ClearBatch once the reveal window closes (permissionless keeper).
     pub caller: Signer<'info>,
 }
 
-/// Find p* via binary search over the submitted limit-price ladder.
+/// Find p* via exhaustive search over submitted limit-price candidates.
 ///
 /// Algorithm:
-///   1. Collect all revealed buy prices (descending) and sell prices (ascending).
-///   2. Candidate set = union of all revealed limit prices.
-///   3. For each candidate p, matched_volume(p) = min(cum_buy_vol(≥p), cum_sell_vol(≤p)).
-///   4. Choose p* = argmax matched_volume; tie-break = minimum spread.
+///   1. Collect all revealed prices as candidates.
+///   2. For each candidate p, matched_volume(p) = min(cum_buy_vol(≥p), cum_sell_vol(≤p)).
+///   3. Choose p* = argmax matched_volume; tie-break = lower p (maximises price improvement
+///      for buyers, consistent with Walrasian equilibrium).
 ///
-/// Returns (clearing_price, matched_volume) or err if no cross.
+/// Returns (clearing_price, matched_volume) or Err(NoCross) if no crossing.
 fn find_clearing_price(pool: &BatchAuctionPool) -> Result<(u64, u64)> {
-    let revealed = &pool.orders[..pool.order_count as usize]
+    let n = pool.order_count as usize;
+    let revealed: Vec<(bool, u64, u64)> = pool.orders[..n]
         .iter()
-        .filter(|o| o.revealed)
-        .collect::<Vec<_>>();
+        .filter(|o| o.revealed != 0)
+        .map(|o| (o.is_buy != 0, o.limit_price, o.amount))
+        .collect();
 
     if revealed.is_empty() {
         return err!(LatticeError::NoCross);
     }
 
-    // Collect distinct price candidates.
-    let mut prices: Vec<u64> = revealed.iter().map(|o| o.limit_price).collect();
-    prices.dedup();
+    // Collect distinct price candidates (union of all revealed limit prices).
+    let mut prices: Vec<u64> = revealed.iter().map(|(_, p, _)| *p).collect();
     prices.sort_unstable();
+    prices.dedup();
 
-    let mut best_price: u64 = 0;
+    let mut best_price:  u64 = 0;
     let mut best_volume: u64 = 0;
 
     for &p in &prices {
-        // Cumulative buy volume at or above p.
         let buy_vol: u64 = revealed
             .iter()
-            .filter(|o| o.is_buy && o.limit_price >= p)
-            .map(|o| o.amount)
+            .filter(|(is_buy, lp, _)| *is_buy && *lp >= p)
+            .map(|(_, _, amt)| *amt)
             .fold(0u64, |acc, x| acc.saturating_add(x));
 
-        // Cumulative sell volume at or below p.
         let sell_vol: u64 = revealed
             .iter()
-            .filter(|o| !o.is_buy && o.limit_price <= p)
-            .map(|o| o.amount)
+            .filter(|(is_buy, lp, _)| !*is_buy && *lp <= p)
+            .map(|(_, _, amt)| *amt)
             .fold(0u64, |acc, x| acc.saturating_add(x));
 
         let matched = buy_vol.min(sell_vol);
 
-        if matched > best_volume || (matched == best_volume && p < best_price) {
+        // Prefer more volume; tie-break on lower price (Walrasian surplus).
+        if matched > best_volume || (matched == best_volume && matched > 0 && p < best_price) {
             best_volume = matched;
-            best_price = p;
+            best_price  = p;
         }
     }
 
@@ -74,38 +80,44 @@ fn find_clearing_price(pool: &BatchAuctionPool) -> Result<(u64, u64)> {
 }
 
 pub fn handler(ctx: Context<ClearBatch>) -> Result<()> {
-    let pool = &mut ctx.accounts.pool;
     let current_slot = Clock::get()?.slot;
 
-    // Auto-advance Reveal → Cleared once the reveal window closes.
-    if pool.phase == PoolPhase::Reveal
-        && current_slot >= pool.phase_start_slot + pool.reveal_window_slots
+    // ── Phase auto-advance: Reveal → Cleared ──────────────────────────────────
     {
-        pool.phase = PoolPhase::Cleared;
-    }
+        let mut pool = ctx.accounts.pool.load_mut()?;
+        if pool.phase == PHASE_REVEAL
+            && current_slot >= pool.phase_start_slot + pool.reveal_window_slots
+        {
+            pool.phase = PHASE_CLEARED;
+        }
 
-    require!(
-        pool.phase == PoolPhase::Cleared,
-        LatticeError::RevealWindowClosed
-    );
-    require!(pool.clearing_price == 0, LatticeError::AlreadyCleared);
+        require!(
+            pool.phase == PHASE_CLEARED,
+            LatticeError::RevealWindowClosed
+        );
+        require!(pool.clearing_price == 0, LatticeError::AlreadyCleared);
+    } // drop borrow so we can re-borrow for clearing
 
-    let (clearing_price, matched_volume) = find_clearing_price(pool)?;
+    // ── Find clearing price (read-only pass) ──────────────────────────────────
+    let (clearing_price, matched_volume) = {
+        let pool = ctx.accounts.pool.load()?;
+        find_clearing_price(&pool)?
+    };
+
+    // ── Mark filled orders (write pass) ───────────────────────────────────────
+    let mut pool = ctx.accounts.pool.load_mut()?;
     pool.clearing_price = clearing_price;
     pool.matched_volume = matched_volume;
 
-    // Mark which orders are filled at p*.
-    // Pro-rata fill: if total buy vol > sell vol, buys are filled pro-rata (simplified to full here).
     let n = pool.order_count as usize;
     for i in 0..n {
-        if !pool.orders[i].revealed {
+        if pool.orders[i].revealed == 0 {
             continue;
         }
-        // Copy fields before mutating to satisfy borrow checker.
-        let (is_buy, limit_price, amount) = {
-            let o = &pool.orders[i];
-            (o.is_buy, o.limit_price, o.amount)
-        };
+        let is_buy      = pool.orders[i].is_buy != 0;
+        let limit_price = pool.orders[i].limit_price;
+        let amount      = pool.orders[i].amount;
+
         let eligible = if is_buy {
             limit_price >= clearing_price
         } else {
@@ -113,7 +125,7 @@ pub fn handler(ctx: Context<ClearBatch>) -> Result<()> {
         };
 
         if eligible {
-            pool.orders[i].filled = true;
+            pool.orders[i].filled      = 1;
             pool.orders[i].fill_amount = amount;
         }
     }
@@ -121,7 +133,7 @@ pub fn handler(ctx: Context<ClearBatch>) -> Result<()> {
     msg!(
         "ClearBatch: p*={} matched_vol={}",
         clearing_price,
-        matched_volume
+        matched_volume,
     );
 
     Ok(())

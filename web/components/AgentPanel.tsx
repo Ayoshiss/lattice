@@ -1,4 +1,9 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { saveOrder } from "@/lib/orderHistory";
+import { runSimulation, DEFAULT_PARAMS } from "@/lib/sandwich";
+
+// MEV bps rate derived once from the sandwich simulation
+const SIM_MEV_BPS = runSimulation(DEFAULT_PARAMS).mevExtractedBps;
 
 interface Fragment {
   index: number;
@@ -17,19 +22,79 @@ interface Strategy {
 
 type AgentPhase = "idle" | "thinking" | "setup" | "executing" | "done" | "error";
 
+/**
+ * Parse a limit price from a natural-language trade instruction.
+ * Looks for phrases like "at $150", "limit $180", "max price 200", "up to $160".
+ * Falls back to 150 if nothing is found.
+ */
+function parseLimitPrice(text: string): number {
+  const s = text.replace(/,/g, "").toLowerCase();
+
+  // "at $150", "limit $180", "max $200", "up to $160", "price $175"
+  const explicit = s.match(/(?:at|limit|max(?:imum)?|up\s+to|price)\s+\$?(\d+(?:\.\d+)?)\b/);
+  if (explicit) return parseFloat(explicit[1]);
+
+  // "limit price 150", "limit 150 usdc"
+  const limitNum = s.match(/limit\s+(?:price\s+)?(\d+(?:\.\d+)?)/);
+  if (limitNum) return parseFloat(limitNum[1]);
+
+  return 150; // default
+}
+
+/**
+ * Parse a dollar / USDC amount from a natural-language trade instruction.
+ * Handles: $5,000 · $5k · 5000 USDC · 5k usdc · bare "5000"
+ * Falls back to 1000 if nothing is found.
+ */
+function parseAmount(text: string): number {
+  const s = text.replace(/,/g, "").toLowerCase();
+
+  // "$5k" or "$5000"
+  const dollarK = s.match(/\$(\d+(?:\.\d+)?)\s*k\b/);
+  if (dollarK) return parseFloat(dollarK[1]) * 1_000;
+
+  const dollar = s.match(/\$(\d+(?:\.\d+)?)\b/);
+  if (dollar) return parseFloat(dollar[1]);
+
+  // "5k usdc/usd" or "5000 usdc/usd"
+  const usdcK = s.match(/(\d+(?:\.\d+)?)\s*k\s*(?:usdc|usd)\b/);
+  if (usdcK) return parseFloat(usdcK[1]) * 1_000;
+
+  const usdc = s.match(/(\d+(?:\.\d+)?)\s*(?:usdc|usd)\b/);
+  if (usdc) return parseFloat(usdc[1]);
+
+  // bare number ≥ 100 (avoids matching "5" in "step 5")
+  const bare = s.match(/\b(\d{3,}(?:\.\d+)?)\b/);
+  if (bare) return parseFloat(bare[1]);
+
+  return 1_000; // default
+}
+
+const EXAMPLES = [
+  "buy $2000 of SOL, I'm worried about market impact",
+  "swap 500 USDC for wSOL quickly, I'm okay with some slippage",
+  "large order: 5000 USDC into SOL over 60 seconds, minimize footprint",
+];
+
 export function AgentPanel() {
-  const [phase, setPhase]         = useState<AgentPhase>("idle");
-  const [thinking, setThinking]   = useState("");
-  const [strategy, setStrategy]   = useState<Strategy | null>(null);
-  const [logs, setLogs]           = useState<{ text: string; level: string }[]>([]);
-  const [fragments, setFragments] = useState<Fragment[]>([]);
-  const [errorMsg, setErrorMsg]   = useState("");
-  const [pool, setPool]           = useState("");
-  const [totalAmount, setTotalAmount] = useState(1000);
-  const [horizonSecs, setHorizonSecs] = useState(30);
-  const [limitPrice, setLimitPrice]   = useState(150);
-  const logRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const [phase, setPhase]           = useState<AgentPhase>("idle");
+  const [orderText, setOrderText]   = useState("");
+  const [reasoning, setReasoning]   = useState("");
+  const [strategy, setStrategy]     = useState<Strategy | null>(null);
+  const [logs, setLogs]             = useState<{ text: string; level: string }[]>([]);
+  const [fragments, setFragments]   = useState<Fragment[]>([]);
+  const [errorMsg, setErrorMsg]     = useState("");
+  const [pool, setPool]             = useState("");
+  const [market, setMarket]         = useState<{ price: number; change24h: number } | null>(null);
+  const [blink, setBlink]           = useState(true);
+  const logRef    = useRef<HTMLDivElement>(null);
+  const abortRef  = useRef<AbortController | null>(null);
+
+  // Blinking cursor
+  useEffect(() => {
+    const t = setInterval(() => setBlink(b => !b), 530);
+    return () => clearInterval(t);
+  }, []);
 
   const addLog = useCallback((text: string, level: string) => {
     setLogs(prev => [...prev, { text, level }]);
@@ -39,30 +104,32 @@ export function AgentPanel() {
   }, []);
 
   const run = useCallback(async () => {
-    // Reset state
+    if (!orderText.trim()) return;
+
     setPhase("thinking");
-    setThinking("");
+    setReasoning("");
     setStrategy(null);
     setLogs([]);
     setFragments([]);
     setErrorMsg("");
     setPool("");
+    setMarket(null);
 
     abortRef.current = new AbortController();
 
     try {
       const resp = await fetch("/api/agent/run", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ totalAmount, tokenOut: "wSOL", horizonSeconds: horizonSecs, limitPrice }),
-        signal: abortRef.current.signal,
+        body:    JSON.stringify({ orderText: orderText.trim(), totalAmount: parseAmount(orderText), limitPrice: parseLimitPrice(orderText) }),
+        signal:  abortRef.current.signal,
       });
 
       if (!resp.body) throw new Error("No response body");
 
-      const reader = resp.body.getReader();
+      const reader  = resp.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buffer    = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -78,9 +145,16 @@ export function AgentPanel() {
           try { evt = JSON.parse(line.slice(6)); } catch { continue; }
 
           switch (evt.type) {
+            case "market":
+              setMarket({ price: evt.price, change24h: evt.change24h });
+              break;
+
             case "thinking":
-              setThinking(evt.text);
               setPhase("thinking");
+              break;
+
+            case "reasoning_chunk":
+              setReasoning(prev => prev + evt.text);
               break;
 
             case "strategy":
@@ -100,12 +174,7 @@ export function AgentPanel() {
             case "fragment_start":
               setFragments(prev => {
                 const next = [...prev];
-                next[evt.index] = {
-                  index: evt.index,
-                  total: evt.total,
-                  amount: evt.amount,
-                  done: false,
-                };
+                next[evt.index] = { index: evt.index, total: evt.total, amount: evt.amount, done: false };
                 return next;
               });
               break;
@@ -115,9 +184,7 @@ export function AgentPanel() {
                 const next = [...prev];
                 next[evt.index] = {
                   ...(next[evt.index] ?? { index: evt.index, total: evt.total, amount: 0 }),
-                  txSig: evt.txSig,
-                  explorerUrl: evt.explorerUrl,
-                  done: true,
+                  txSig: evt.txSig, explorerUrl: evt.explorerUrl, done: true,
                 };
                 return next;
               });
@@ -125,6 +192,26 @@ export function AgentPanel() {
 
             case "done":
               setPhase("done");
+              // Save to order history — use last confirmed fragment tx as the record
+              setFragments(prev => {
+                const last = prev.filter(f => f.done).pop();
+                if (last?.txSig) {
+                  const amt      = Number(evt.totalAmount ?? 1000);
+                  const mevSaved = parseFloat(((amt * SIM_MEV_BPS) / 10_000).toFixed(2));
+                  saveOrder({
+                    id:           crypto.randomUUID(),
+                    timestamp:    Date.now(),
+                    type:         "agent",
+                    amountUsdc:   amt,
+                    tokenOut:     "SOL",
+                    mevSavedUsdc: mevSaved,
+                    txSig:        last.txSig,
+                    explorerUrl:  last.explorerUrl ?? "",
+                    slices:       evt.n,
+                  });
+                }
+                return prev;
+              });
               break;
 
             case "error":
@@ -140,14 +227,25 @@ export function AgentPanel() {
         setPhase("error");
       }
     }
-  }, [totalAmount, horizonSecs, limitPrice, addLog]);
+  }, [orderText, addLog]);
 
   const stop = () => {
     abortRef.current?.abort();
     setPhase("idle");
   };
 
+  const reset = () => {
+    setPhase("idle");
+    setReasoning("");
+    setStrategy(null);
+    setLogs([]);
+    setFragments([]);
+    setErrorMsg("");
+    setPool("");
+  };
+
   const isRunning = phase === "thinking" || phase === "setup" || phase === "executing";
+  const isIdle    = phase === "idle";
 
   return (
     <div className="flex flex-col rounded-xl border border-[#00d4ff44] bg-[#0f0f1a] overflow-hidden">
@@ -159,7 +257,7 @@ export function AgentPanel() {
             AI Trading Agent
           </div>
           <div className="text-[10px] font-mono text-[#4a4a6a] mt-0.5">
-            LLM decides the strategy — agent executes on Solana devnet
+            Describe your trade in plain English — the agent decides how to execute it
           </div>
         </div>
         <span className="ml-auto text-[10px] font-mono px-2 py-1 rounded bg-[#00d4ff18] text-[#00d4ff] border border-[#00d4ff33]">
@@ -167,57 +265,63 @@ export function AgentPanel() {
         </span>
       </div>
 
-      {/* Order config */}
+      {/* Order input */}
       <div className="px-5 pt-4 pb-3 border-b border-[#1e1e32]">
-        <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3">
-          Order parameters
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono">
+            Your order
+          </div>
+          {market && (
+            <div className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+              market.change24h >= 0
+                ? "text-[#00ff88] border-[#00ff8833] bg-[#00ff8808]"
+                : "text-[#ff3b5c] border-[#ff3b5c33] bg-[#ff3b5c08]"
+            }`}>
+              SOL ${market.price.toFixed(2)} {market.change24h >= 0 ? "▲" : "▼"} {Math.abs(market.change24h).toFixed(2)}% 24h
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-[10px] font-mono text-[#4a4a6a] block mb-1">Amount (USDC)</label>
-            <input
-              type="number"
-              value={totalAmount}
-              onChange={e => setTotalAmount(Number(e.target.value))}
-              disabled={isRunning}
-              className="w-full bg-[#0a0a14] border border-[#1e1e32] rounded px-2 py-1.5
-                         text-[13px] font-mono text-[#e0e0f0] focus:outline-none focus:border-[#00d4ff55]
-                         disabled:opacity-50"
-            />
+        <textarea
+          value={orderText}
+          onChange={e => setOrderText(e.target.value)}
+          disabled={isRunning}
+          placeholder={`e.g. "buy $2000 of SOL, I'm worried about market impact"`}
+          rows={2}
+          className="w-full bg-[#0a0a14] border border-[#1e1e32] rounded-lg px-3 py-2.5
+                     text-[13px] font-mono text-[#e0e0f0] placeholder-[#2a2a4a] resize-none
+                     focus:outline-none focus:border-[#00d4ff55] disabled:opacity-50
+                     leading-5"
+          onKeyDown={e => {
+            if (e.key === "Enter" && !e.shiftKey && !isRunning && orderText.trim()) {
+              e.preventDefault();
+              run();
+            }
+          }}
+        />
+        {/* Example pills — only show when idle and empty */}
+        {isIdle && !orderText && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {EXAMPLES.map(ex => (
+              <button
+                key={ex}
+                onClick={() => setOrderText(ex)}
+                className="text-[10px] font-mono px-2 py-1 rounded border border-[#1e1e32]
+                           text-[#4a4a6a] hover:border-[#00d4ff44] hover:text-[#00d4ff]
+                           transition-colors truncate max-w-xs"
+              >
+                {ex.length > 48 ? ex.slice(0, 48) + "…" : ex}
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="text-[10px] font-mono text-[#4a4a6a] block mb-1">Horizon (sec)</label>
-            <input
-              type="number"
-              value={horizonSecs}
-              onChange={e => setHorizonSecs(Number(e.target.value))}
-              disabled={isRunning}
-              className="w-full bg-[#0a0a14] border border-[#1e1e32] rounded px-2 py-1.5
-                         text-[13px] font-mono text-[#e0e0f0] focus:outline-none focus:border-[#00d4ff55]
-                         disabled:opacity-50"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-mono text-[#4a4a6a] block mb-1">Limit price</label>
-            <input
-              type="number"
-              value={limitPrice}
-              onChange={e => setLimitPrice(Number(e.target.value))}
-              disabled={isRunning}
-              className="w-full bg-[#0a0a14] border border-[#1e1e32] rounded px-2 py-1.5
-                         text-[13px] font-mono text-[#e0e0f0] focus:outline-none focus:border-[#00d4ff55]
-                         disabled:opacity-50"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* AI Reasoning */}
+      {/* AI Reasoning — streams live */}
       <div className="px-5 py-4 border-b border-[#1e1e32]">
         <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3 flex items-center gap-2">
-          AI strategy
+          AI reasoning
           {phase === "thinking" && (
-            <span className="inline-flex gap-0.5">
+            <span className="inline-flex gap-0.5 ml-1">
               <span className="w-1 h-1 rounded-full bg-[#00d4ff] animate-bounce" style={{ animationDelay: "0ms" }} />
               <span className="w-1 h-1 rounded-full bg-[#00d4ff] animate-bounce" style={{ animationDelay: "150ms" }} />
               <span className="w-1 h-1 rounded-full bg-[#00d4ff] animate-bounce" style={{ animationDelay: "300ms" }} />
@@ -225,72 +329,61 @@ export function AgentPanel() {
           )}
         </div>
 
-        {phase === "idle" && !strategy && (
-          <div className="text-[12px] font-mono text-[#2a2a4a] italic">
-            LLM will analyze the order and choose the optimal TWAP slice count…
-          </div>
-        )}
+        {/* Streamed prose */}
+        <div className="min-h-[48px] text-[13px] font-mono text-[#c0c0e0] leading-6">
+          {reasoning || (isIdle
+            ? <span className="italic text-[#2a2a4a]">AI will reason about your trade here…</span>
+            : null
+          )}
+          {/* Blinking cursor while streaming */}
+          {phase === "thinking" && (
+            <span style={{ opacity: blink ? 1 : 0 }} className="transition-opacity duration-100 text-[#00d4ff]">▌</span>
+          )}
+        </div>
 
-        {phase === "thinking" && (
-          <div className="text-[12px] font-mono text-[#4a4a6a] animate-pulse">
-            {thinking || "Analyzing order…"}
-          </div>
-        )}
-
+        {/* Strategy card — appears after reasoning finishes */}
         {strategy && (
-          <div className="space-y-2">
-            <div className="rounded-lg bg-[#00d4ff08] border border-[#00d4ff22] px-3 py-2.5">
-              <div className="text-[10px] font-mono text-[#00d4ff66] uppercase tracking-wider mb-1">
-                Rationale
-              </div>
-              <div className="text-[12px] font-mono text-[#c0c0e0] leading-4">
-                {strategy.rationale}
-              </div>
+          <div className="flex gap-2 mt-3">
+            <div className="w-16 shrink-0 rounded-lg bg-[#00d4ff0a] border border-[#00d4ff22] flex flex-col items-center justify-center py-2">
+              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider">Slices</div>
+              <div className="text-2xl font-mono font-bold text-[#00d4ff]">{strategy.n}</div>
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1 rounded-lg bg-[#ffffff04] border border-[#1e1e32] px-3 py-2 text-center">
-                <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider">Slices</div>
-                <div className="text-xl font-mono font-bold text-[#00d4ff] mt-0.5">{strategy.n}</div>
-              </div>
-              <div className="flex-[3] rounded-lg bg-[#ffffff04] border border-[#1e1e32] px-3 py-2">
-                <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider mb-1">Risk note</div>
-                <div className="text-[11px] font-mono text-[#6a6a8a] leading-4">{strategy.riskNote}</div>
-              </div>
+            <div className="flex-1 rounded-lg bg-[#ffffff04] border border-[#1e1e32] px-3 py-2">
+              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider mb-1">Risk note</div>
+              <div className="text-[11px] font-mono text-[#6a6a8a] leading-4">{strategy.riskNote}</div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Execution log */}
+      {/* Execution */}
       <div className="px-5 py-4 border-b border-[#1e1e32] flex-1">
         <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3">
           Execution
         </div>
 
-        {/* Fragment progress */}
-        {fragments.length > 0 && (
+        {/* Fragment progress bar */}
+        {strategy && (
           <div className="flex gap-1.5 mb-3">
-            {fragments.map((f) => (
-              <div
-                key={f.index}
-                className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${
-                  f.done
+            {Array.from({ length: strategy.n }).map((_, i) => {
+              const f = fragments[i];
+              return (
+                <div key={i} className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${
+                  f?.done
                     ? "bg-[#00ff88] shadow-[0_0_6px_#00ff88]"
-                    : "bg-[#00d4ff44] animate-pulse"
-                }`}
-              />
-            ))}
-            {/* Remaining placeholder bars */}
-            {strategy && Array.from({ length: strategy.n - fragments.length }).map((_, i) => (
-              <div key={`ph-${i}`} className="flex-1 h-1.5 rounded-full bg-[#1e1e32]" />
-            ))}
+                    : f
+                    ? "bg-[#00d4ff44] animate-pulse"
+                    : "bg-[#1e1e32]"
+                }`} />
+              );
+            })}
           </div>
         )}
 
         {/* Fragment cards */}
         {fragments.length > 0 && (
           <div className="space-y-1.5 mb-3">
-            {fragments.map((f) => (
+            {fragments.map(f => (
               <div
                 key={f.index}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 border text-[11px] font-mono transition-colors duration-300 ${
@@ -302,19 +395,17 @@ export function AgentPanel() {
                 <span className="shrink-0 font-bold">
                   {f.done ? "✓" : "◌"} Fragment {f.index + 1}/{f.total}
                 </span>
-                <span className="text-[#4a4a6a]">{f.amount} USDC</span>
-                {f.done && f.txSig && (
+                <span className="text-[#4a4a6a]">{f.amount.toFixed(2)} USDC</span>
+                {f.done && f.txSig ? (
                   <a
                     href={f.explorerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ml-auto text-[#00d4ff] hover:underline shrink-0"
-                    onClick={e => e.stopPropagation()}
                   >
                     {f.txSig.slice(0, 12)}… ↗
                   </a>
-                )}
-                {!f.done && (
+                ) : (
                   <span className="ml-auto text-[#4a4a6a]">executing…</span>
                 )}
               </div>
@@ -322,7 +413,7 @@ export function AgentPanel() {
           </div>
         )}
 
-        {/* Pool address */}
+        {/* Pool link */}
         {pool && (
           <div className="text-[10px] font-mono text-[#4a4a6a] mb-2">
             Pool:{" "}
@@ -332,35 +423,27 @@ export function AgentPanel() {
               rel="noopener noreferrer"
               className="text-[#00d4ff] hover:underline"
             >
-              {pool.slice(0, 18)}… ↗
+              {pool.slice(0, 20)}… ↗
             </a>
           </div>
         )}
 
         {/* Log stream */}
-        <div
-          ref={logRef}
-          className="max-h-28 overflow-y-auto font-mono text-[11px] space-y-0.5 pr-1"
-        >
-          {logs.map((entry, i) => (
-            <div
-              key={i}
-              className={`flex gap-2 leading-5 ${
-                entry.level === "warn"    ? "text-yellow-400"  :
-                entry.level === "success" ? "text-[#00ff88]"   :
-                entry.level === "error"   ? "text-[#ff3b5c]"   :
-                                            "text-[#4a4a6a]"
-              }`}
-            >
+        <div ref={logRef} className="max-h-24 overflow-y-auto font-mono text-[11px] space-y-0.5 pr-1">
+          {logs.map((e, i) => (
+            <div key={i} className={`flex gap-2 leading-5 ${
+              e.level === "warn"    ? "text-yellow-400" :
+              e.level === "success" ? "text-[#00ff88]"  :
+              e.level === "error"   ? "text-[#ff3b5c]"  :
+                                      "text-[#4a4a6a]"
+            }`}>
               <span className="shrink-0">
-                {entry.level === "warn" ? "!" :
-                 entry.level === "success" ? "✓" :
-                 entry.level === "error" ? "✗" : "·"}
+                {e.level === "warn" ? "!" : e.level === "success" ? "✓" : e.level === "error" ? "✗" : "·"}
               </span>
-              <span className="break-all">{entry.text}</span>
+              <span className="break-all">{e.text}</span>
             </div>
           ))}
-          {logs.length === 0 && phase === "idle" && (
+          {logs.length === 0 && isIdle && (
             <div className="italic text-[#2a2a4a]">Waiting to run…</div>
           )}
         </div>
@@ -372,14 +455,14 @@ export function AgentPanel() {
           </div>
         )}
 
-        {/* Done summary */}
+        {/* Done */}
         {phase === "done" && (
           <div className="mt-2 rounded-lg border border-[#00ff8844] bg-[#00ff8808] px-3 py-2.5">
             <div className="text-[12px] font-mono font-bold text-[#00ff88]">
               ✓ All {strategy?.n} fragments confirmed on devnet
             </div>
             <div className="text-[11px] font-mono text-[#4a4a6a] mt-0.5">
-              Zero MEV extracted — order invisible until settlement
+              Zero MEV — order was invisible until settlement
             </div>
           </div>
         )}
@@ -398,18 +481,20 @@ export function AgentPanel() {
           </button>
         ) : (
           <button
-            onClick={run}
+            onClick={phase === "idle" ? run : reset}
+            disabled={isIdle && !orderText.trim()}
             className="w-full py-3 rounded-lg border border-[#00d4ff55] bg-[#00d4ff11]
                        text-[#00d4ff] text-sm font-mono font-semibold tracking-wider
-                       hover:bg-[#00d4ff22] hover:border-[#00d4ff88] transition-all"
+                       hover:bg-[#00d4ff22] hover:border-[#00d4ff88] transition-all
+                       disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            {phase === "done" ? "↺  Run Again" :
-             phase === "error" ? "↺  Retry Agent" :
+            {phase === "done"  ? "↺  Run Again" :
+             phase === "error" ? "↺  Retry" :
              "▶  Run AI Agent"}
           </button>
         )}
         <p className="text-center text-[10px] font-mono text-[#2a2a4a] mt-2">
-          LLM picks the slice count · each fragment executes on Solana devnet
+          Press Enter or click ▶ · each fragment executes live on Solana devnet
         </p>
       </div>
     </div>

@@ -1,6 +1,13 @@
 import { SimResult, toDisplay } from "@/lib/sandwich";
 import { MevMeter } from "./MevMeter";
 import { LogEntry, LogStream } from "./LogStream";
+import { BatchVisualizer, RealBatchData } from "./BatchVisualizer";
+
+interface SlotInfo {
+  remaining: number;
+  total: number;
+  label: string;
+}
 
 interface Props {
   result: SimResult;
@@ -8,7 +15,9 @@ interface Props {
   running: boolean;
   phase: "idle" | "commit" | "reveal" | "clear" | "done";
   txSig?: string;
+  slotInfo?: SlotInfo | null;
   onSubmit: () => void;
+  realBatchData?: RealBatchData | null;
 }
 
 const PHASES = ["commit", "reveal", "clear", "done"] as const;
@@ -21,7 +30,7 @@ const phaseInfo: Record<string, { label: string; icon: string; desc: string }> =
   done:   { label: "Settled ✓",  icon: "✅", desc: "Order filled. Zero bot interference." },
 };
 
-export function LatticePanel({ result, logs, running, phase, txSig, onSubmit }: Props) {
+export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, onSubmit, realBatchData }: Props) {
   const done = phase === "done";
   const phaseIdx = PHASES.indexOf(phase as any);
 
@@ -75,6 +84,29 @@ export function LatticePanel({ result, logs, running, phase, txSig, onSubmit }: 
               — {phaseInfo[phase].desc}
             </span>
           </div>
+
+          {/* Live slot countdown */}
+          {slotInfo && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest">
+                  {slotInfo.label}
+                </span>
+                <span className="text-[10px] font-mono text-[#00d4ff]">
+                  {slotInfo.remaining} / {slotInfo.total} slots
+                  <span className="text-[#4a4a6a] ml-1">
+                    (~{Math.ceil(slotInfo.remaining * 0.4)}s)
+                  </span>
+                </span>
+              </div>
+              <div className="h-1 rounded-full bg-[#1e1e32] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[#00d4ff] transition-all duration-500"
+                  style={{ width: `${((slotInfo.total - slotInfo.remaining) / slotInfo.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -142,6 +174,9 @@ export function LatticePanel({ result, logs, running, phase, txSig, onSubmit }: 
             </div>
           </div>
         ))}
+
+        {/* Batch visualizer */}
+        <BatchVisualizer phase={phase} realBatchData={realBatchData} />
 
         {/* Result */}
         <div className={`mt-3 rounded-lg border px-4 py-3 transition-all duration-700 ${

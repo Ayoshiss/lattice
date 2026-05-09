@@ -19,11 +19,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     headers["payment-signature"] = req.headers["payment-signature"] as string;
   }
 
-  const upstream = await fetch(url, {
-    method,
-    headers,
-    body: method !== "GET" ? JSON.stringify(req.body) : undefined,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method,
+      headers,
+      body: method !== "GET" ? JSON.stringify(req.body) : undefined,
+    });
+  } catch {
+    // Relay is not running — return a structured 503 so the UI can detect it
+    return res.status(503).json({ ok: false, error: "Relay unreachable — start it with: cd relay && npm start" });
+  }
 
   // Forward all relevant headers back to the browser
   const payReq  = upstream.headers.get("payment-required");
