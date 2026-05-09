@@ -416,16 +416,16 @@ export default function Demo() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-[#080810] text-[#e0e0f0]">
+      <div className="min-h-screen bg-[#05050f] text-[#f1f0f7]">
         {/* ── Top nav ────────────────────────────────────────────────────── */}
-        <nav className="border-b border-[#1e1e32] px-6 py-4 flex items-center justify-between">
+        <nav className="sticky top-0 z-50 border-b border-[#1a1a2e] bg-[#05050fdd] backdrop-blur-xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="relative w-7 h-7">
-              <div className="absolute inset-0 rounded border border-[#00d4ff] rotate-45 opacity-70" />
-              <div className="absolute inset-1 rounded border border-[#00d4ff55] rotate-45" />
-              <div className="absolute inset-[6px] rounded-sm bg-[#00d4ff]" />
-            </div>
-            <span className="font-mono font-bold text-lg tracking-wider text-[#e0e0f0]">
+            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="4" width="20" height="20" rx="3" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="1.5" opacity="0.7" />
+              <rect x="7" y="7" width="14" height="14" rx="2" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="1" opacity="0.4" />
+              <rect x="11" y="11" width="6" height="6" rx="1" transform="rotate(45 14 14)" fill="#f0b429" />
+            </svg>
+            <span className="font-mono font-bold text-[17px] tracking-[0.1em] text-[#f1f0f7]">
               LATTICE
             </span>
           </Link>
@@ -490,60 +490,58 @@ export default function Demo() {
         )}
 
         {/* ── Hero ────────────────────────────────────────────────────────── */}
-        <div className="text-center py-10 px-6 border-b border-[#1e1e32]">
+        <div className="text-center py-10 px-6 border-b border-[#1a1a2e] bg-[#07070fbb]">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5
-                          bg-[#00d4ff11] border border-[#00d4ff33] text-[#00d4ff]
-                          text-xs font-mono uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
-            Frontier Hackathon 2025
+                          bg-[#f0b42908] border border-[#f0b42930] text-[#f0b429]
+                          text-[10px] font-mono uppercase tracking-[0.2em]">
+            <svg width="10" height="10" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="4" width="20" height="20" rx="3" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="2" opacity="0.7" />
+              <rect x="11" y="11" width="6" height="6" rx="1" transform="rotate(45 14 14)" fill="#f0b429" />
+            </svg>
+            Frontier Hackathon 2026
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#e0e0f0] mb-3 tracking-tight">
-            Trading bots steal from every swap.
+          <h1 className="text-3xl sm:text-4xl font-black text-[#f1f0f7] mb-3 tracking-[-0.02em]">
+            Live interactive demo
           </h1>
-          <p className="text-[#6a6a8a] text-sm max-w-xl mx-auto leading-6 mb-2">
-            On a regular DEX, your order is visible before it executes. Bots jump in front,
-            move the price, then sell back — pocketing the difference from your trade.
-          </p>
-          <p className="text-[#e0e0f0] text-sm font-semibold max-w-xl mx-auto">
-            Lattice makes it{" "}
-            <span className="text-[#00ff88]">cryptographically impossible</span>
-            {" "}— run the demo below to see why.
+          <p className="text-[#6b6b8a] text-sm max-w-xl mx-auto leading-6 mb-2">
+            Run a real sandwich attack simulation, then submit a protected order through Lattice
+            on Solana devnet. Every transaction is verifiable on-chain.
           </p>
 
           {/* Quick stats */}
-          <div className="flex items-center justify-center gap-3 mt-7 flex-wrap">
-            <div className="rounded-lg px-4 py-2.5 bg-[#ff3b5c0f] border border-[#ff3b5c33] text-center">
-              <div className="text-[10px] font-mono text-[#ff3b5c99] uppercase tracking-widest">Bot steals per trade</div>
+          <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
+            <div className="rounded-xl px-4 py-2.5 bg-[#ff3b5c0c] border border-[#ff3b5c30] text-center">
+              <div className="text-[10px] font-mono text-[#ff3b5c66] uppercase tracking-wider">Bot steals</div>
               <div className="text-xl font-mono font-bold text-[#ff3b5c]">$99.74</div>
             </div>
-            <div className="text-[#2a2a4a] font-mono text-xl">vs</div>
-            <div className="rounded-lg px-4 py-2.5 bg-[#00ff880f] border border-[#00ff8833] text-center">
-              <div className="text-[10px] font-mono text-[#00ff8899] uppercase tracking-widest">Lattice bot profit</div>
+            <div className="text-[#2a2a42] font-mono font-bold">vs</div>
+            <div className="rounded-xl px-4 py-2.5 bg-[#00ff8808] border border-[#00ff8830] text-center">
+              <div className="text-[10px] font-mono text-[#00ff8866] uppercase tracking-wider">Lattice bots earn</div>
               <div className="text-xl font-mono font-bold text-[#00ff88]">$0.00</div>
             </div>
-            <div className="rounded-lg px-4 py-2.5 bg-[#0f0f1a] border border-[#1e1e32] text-center">
-              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest">You save</div>
-              <div className="text-xl font-mono font-bold text-[#00d4ff]">+{toDisplay(result.latticeImprovementSol)} SOL</div>
+            <div className="rounded-xl px-4 py-2.5 bg-[#0c0c1a] border border-[#1a1a2e] text-center">
+              <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-wider">You keep</div>
+              <div className="text-xl font-mono font-bold text-[#a78bfa]">+{toDisplay(result.latticeImprovementSol)} SOL</div>
             </div>
           </div>
         </div>
 
         {/* ── Step banner ──────────────────────────────────────────────────── */}
         <div className="max-w-7xl mx-auto px-6 pt-6">
-          <div className="flex items-center gap-3 rounded-xl border border-[#1e1e32] bg-[#0a0a14] px-5 py-3">
+          <div className="flex items-center gap-3 rounded-xl border border-[#1a1a2e] bg-[#0c0c1a] px-5 py-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-[#ff3b5c22] border border-[#ff3b5c55] flex items-center justify-center text-[10px] font-mono font-bold text-[#ff3b5c]">1</span>
-              <span className="text-xs font-mono text-[#e0e0f0]">Run the bot attack</span>
+              <span className="w-5 h-5 rounded-full bg-[#ff3b5c18] border border-[#ff3b5c44] flex items-center justify-center text-[10px] font-mono font-bold text-[#ff3b5c]">1</span>
+              <span className="text-xs font-mono text-[#f1f0f7]">Run the bot attack</span>
             </div>
-            <div className="flex-1 h-px bg-[#1e1e32] mx-2" />
+            <div className="flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-[#00ff8822] border border-[#00ff8855] flex items-center justify-center text-[10px] font-mono font-bold text-[#00ff88]">2</span>
-              <span className="text-xs font-mono text-[#e0e0f0]">Submit a protected order</span>
+              <span className="w-5 h-5 rounded-full bg-[#00ff8818] border border-[#00ff8844] flex items-center justify-center text-[10px] font-mono font-bold text-[#00ff88]">2</span>
+              <span className="text-xs font-mono text-[#f1f0f7]">Submit a protected order</span>
             </div>
-            <div className="flex-1 h-px bg-[#1e1e32] mx-2" />
+            <div className="flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-[#00d4ff22] border border-[#00d4ff55] flex items-center justify-center text-[10px] font-mono font-bold text-[#00d4ff]">3</span>
-              <span className="text-xs font-mono text-[#e0e0f0]">Watch the AI agent trade</span>
+              <span className="w-5 h-5 rounded-full bg-[#a78bfa18] border border-[#a78bfa44] flex items-center justify-center text-[10px] font-mono font-bold text-[#a78bfa]">3</span>
+              <span className="text-xs font-mono text-[#f1f0f7]">Watch the AI agent trade</span>
             </div>
           </div>
         </div>
@@ -673,8 +671,14 @@ export default function Demo() {
         </div>
 
         {/* ── Footer ───────────────────────────────────────────────────────── */}
-        <div className="border-t border-[#1e1e32] px-6 py-4 flex items-center justify-between text-[10px] font-mono text-[#4a4a6a]">
-          <span>Lattice — Frontier Hackathon 2025</span>
+        <div className="border-t border-[#1a1a2e] px-6 py-4 flex items-center justify-between text-[10px] font-mono text-[#3a3a5a]">
+          <div className="flex items-center gap-3">
+            <svg width="16" height="16" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="4" width="20" height="20" rx="3" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="1.5" opacity="0.7" />
+              <rect x="11" y="11" width="6" height="6" rx="1" transform="rotate(45 14 14)" fill="#f0b429" />
+            </svg>
+            <span>Lattice — Frontier Hackathon 2026</span>
+          </div>
           <a
             href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
             target="_blank"
