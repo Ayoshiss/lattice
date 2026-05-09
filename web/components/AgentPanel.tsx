@@ -248,27 +248,32 @@ export function AgentPanel() {
   const isIdle    = phase === "idle";
 
   return (
-    <div className="flex flex-col rounded-xl border border-[#00d4ff44] bg-[#0f0f1a] overflow-hidden">
+    <div className="flex flex-col rounded-2xl border border-[#00d4ff33] bg-[#0c0c1a] overflow-hidden
+                    shadow-[0_0_0_1px_#00d4ff22,0_0_40px_#00d4ff0a]">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#1e1e32] bg-[#00d4ff08]">
-        <div className="w-2 h-2 rounded-full bg-[#00d4ff] shadow-[0_0_8px_#00d4ff]" />
+      <div className="relative flex items-center gap-3 px-5 py-4 border-b border-[#00d4ff22] bg-gradient-to-r from-[#00d4ff0a] to-transparent">
+        <div className="relative">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#00d4ff] shadow-[0_0_8px_#00d4ff]" />
+          <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-[#00d4ff] animate-ping opacity-40" />
+        </div>
         <div>
-          <div className="font-mono text-sm font-bold text-[#00d4ff] tracking-wide">
+          <div className="font-mono text-sm font-bold text-[#00d4ff] tracking-[0.08em]">
             AI Trading Agent
           </div>
-          <div className="text-[10px] font-mono text-[#4a4a6a] mt-0.5">
+          <div className="text-[10px] font-mono text-[#3a3a5a] mt-0.5">
             Describe your trade in plain English — the agent decides how to execute it
           </div>
         </div>
-        <span className="ml-auto text-[10px] font-mono px-2 py-1 rounded bg-[#00d4ff18] text-[#00d4ff] border border-[#00d4ff33]">
+        <span className="ml-auto text-[9px] font-mono px-2 py-1 rounded border border-[#00d4ff33]
+                         text-[#00d4ff] bg-[#00d4ff10] uppercase tracking-wider shrink-0">
           AUTONOMOUS
         </span>
       </div>
 
       {/* Order input */}
-      <div className="px-5 pt-4 pb-3 border-b border-[#1e1e32]">
+      <div className="px-5 pt-4 pb-3 border-b border-[#1a1a2e]">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono">
+          <div className="text-[10px] uppercase tracking-widest text-[#3a3a5a] font-mono">
             Your order
           </div>
           {market && (
@@ -287,8 +292,8 @@ export function AgentPanel() {
           disabled={isRunning}
           placeholder={`e.g. "buy $2000 of SOL, I'm worried about market impact"`}
           rows={2}
-          className="w-full bg-[#0a0a14] border border-[#1e1e32] rounded-lg px-3 py-2.5
-                     text-[13px] font-mono text-[#e0e0f0] placeholder-[#2a2a4a] resize-none
+          className="w-full bg-[#080812] border border-[#1a1a2e] rounded-lg px-3 py-2.5
+                     text-[13px] font-mono text-[#f1f0f7] placeholder-[#2a2a42] resize-none
                      focus:outline-none focus:border-[#00d4ff55] disabled:opacity-50
                      leading-5"
           onKeyDown={e => {
@@ -305,8 +310,8 @@ export function AgentPanel() {
               <button
                 key={ex}
                 onClick={() => setOrderText(ex)}
-                className="text-[10px] font-mono px-2 py-1 rounded border border-[#1e1e32]
-                           text-[#4a4a6a] hover:border-[#00d4ff44] hover:text-[#00d4ff]
+                className="text-[10px] font-mono px-2 py-1 rounded border border-[#1a1a2e]
+                           text-[#3a3a5a] hover:border-[#00d4ff44] hover:text-[#00d4ff]
                            transition-colors truncate max-w-xs"
               >
                 {ex.length > 48 ? ex.slice(0, 48) + "…" : ex}
@@ -317,8 +322,8 @@ export function AgentPanel() {
       </div>
 
       {/* AI Reasoning — streams live */}
-      <div className="px-5 py-4 border-b border-[#1e1e32]">
-        <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3 flex items-center gap-2">
+      <div className="px-5 py-4 border-b border-[#1a1a2e]">
+        <div className="text-[10px] uppercase tracking-widest text-[#3a3a5a] font-mono mb-3 flex items-center gap-2">
           AI reasoning
           {phase === "thinking" && (
             <span className="inline-flex gap-0.5 ml-1">
@@ -345,11 +350,11 @@ export function AgentPanel() {
         {strategy && (
           <div className="flex gap-2 mt-3">
             <div className="w-16 shrink-0 rounded-lg bg-[#00d4ff0a] border border-[#00d4ff22] flex flex-col items-center justify-center py-2">
-              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider">Slices</div>
+              <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-wider">Slices</div>
               <div className="text-2xl font-mono font-bold text-[#00d4ff]">{strategy.n}</div>
             </div>
-            <div className="flex-1 rounded-lg bg-[#ffffff04] border border-[#1e1e32] px-3 py-2">
-              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-wider mb-1">Risk note</div>
+            <div className="flex-1 rounded-lg bg-[#ffffff04] border border-[#1a1a2e] px-3 py-2">
+              <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-wider mb-1">Risk note</div>
               <div className="text-[11px] font-mono text-[#6a6a8a] leading-4">{strategy.riskNote}</div>
             </div>
           </div>
@@ -357,8 +362,8 @@ export function AgentPanel() {
       </div>
 
       {/* Execution */}
-      <div className="px-5 py-4 border-b border-[#1e1e32] flex-1">
-        <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3">
+      <div className="px-5 py-4 border-b border-[#1a1a2e] flex-1">
+        <div className="text-[10px] uppercase tracking-widest text-[#3a3a5a] font-mono mb-3">
           Execution
         </div>
 
@@ -386,7 +391,7 @@ export function AgentPanel() {
             {fragments.map(f => (
               <div
                 key={f.index}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 border text-[11px] font-mono transition-colors duration-300 ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-2 border text-[11px] font-mono transition-colors duration-300 ${
                   f.done
                     ? "border-[#00ff8833] bg-[#00ff8808] text-[#00ff88]"
                     : "border-[#00d4ff33] bg-[#00d4ff08] text-[#00d4ff] animate-pulse"
@@ -395,7 +400,7 @@ export function AgentPanel() {
                 <span className="shrink-0 font-bold">
                   {f.done ? "✓" : "◌"} Fragment {f.index + 1}/{f.total}
                 </span>
-                <span className="text-[#4a4a6a]">{f.amount.toFixed(2)} USDC</span>
+                <span className="text-[#3a3a5a]">{f.amount.toFixed(2)} USDC</span>
                 {f.done && f.txSig ? (
                   <a
                     href={f.explorerUrl}
@@ -406,7 +411,7 @@ export function AgentPanel() {
                     {f.txSig.slice(0, 12)}… ↗
                   </a>
                 ) : (
-                  <span className="ml-auto text-[#4a4a6a]">executing…</span>
+                  <span className="ml-auto text-[#3a3a5a]">executing…</span>
                 )}
               </div>
             ))}
@@ -415,7 +420,7 @@ export function AgentPanel() {
 
         {/* Pool link */}
         {pool && (
-          <div className="text-[10px] font-mono text-[#4a4a6a] mb-2">
+          <div className="text-[10px] font-mono text-[#3a3a5a] mb-2">
             Pool:{" "}
             <a
               href={`https://explorer.solana.com/address/${pool}?cluster=devnet`}
@@ -435,7 +440,7 @@ export function AgentPanel() {
               e.level === "warn"    ? "text-yellow-400" :
               e.level === "success" ? "text-[#00ff88]"  :
               e.level === "error"   ? "text-[#ff3b5c]"  :
-                                      "text-[#4a4a6a]"
+                                      "text-[#3a3a5a]"
             }`}>
               <span className="shrink-0">
                 {e.level === "warn" ? "!" : e.level === "success" ? "✓" : e.level === "error" ? "✗" : "·"}
@@ -461,7 +466,7 @@ export function AgentPanel() {
             <div className="text-[12px] font-mono font-bold text-[#00ff88]">
               ✓ All {strategy?.n} fragments confirmed on devnet
             </div>
-            <div className="text-[11px] font-mono text-[#4a4a6a] mt-0.5">
+            <div className="text-[11px] font-mono text-[#3a3a5a] mt-0.5">
               Zero MEV — order was invisible until settlement
             </div>
           </div>
@@ -473,9 +478,9 @@ export function AgentPanel() {
         {isRunning ? (
           <button
             onClick={stop}
-            className="w-full py-3 rounded-lg border border-[#4a4a6a55] bg-[#1e1e32]
-                       text-[#4a4a6a] text-sm font-mono font-semibold tracking-wider
-                       hover:border-[#ff3b5c55] hover:text-[#ff3b5c] transition-all"
+            className="w-full py-3.5 rounded-xl border border-[#3a3a5a44] bg-[#1a1a2e]
+                       text-[#3a3a5a] text-sm font-mono font-bold tracking-wider
+                       hover:border-[#ff3b5c55] hover:text-[#ff3b5c] transition-all duration-200"
           >
             ◼  Stop Agent
           </button>
@@ -483,17 +488,17 @@ export function AgentPanel() {
           <button
             onClick={phase === "idle" ? run : reset}
             disabled={isIdle && !orderText.trim()}
-            className="w-full py-3 rounded-lg border border-[#00d4ff55] bg-[#00d4ff11]
-                       text-[#00d4ff] text-sm font-mono font-semibold tracking-wider
-                       hover:bg-[#00d4ff22] hover:border-[#00d4ff88] transition-all
-                       disabled:opacity-30 disabled:cursor-not-allowed"
+            className="btn-shimmer relative w-full py-3.5 rounded-xl border border-[#00d4ff44] bg-[#00d4ff0c]
+                       text-[#00d4ff] text-sm font-mono font-bold tracking-wider overflow-hidden
+                       hover:bg-[#00d4ff18] hover:border-[#00d4ff88] hover:shadow-cyan
+                       transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {phase === "done"  ? "↺  Run Again" :
              phase === "error" ? "↺  Retry" :
              "▶  Run AI Agent"}
           </button>
         )}
-        <p className="text-center text-[10px] font-mono text-[#2a2a4a] mt-2">
+        <p className="text-center text-[10px] font-mono text-[#2a2a42] mt-2">
           Press Enter or click ▶ · each fragment executes live on Solana devnet
         </p>
       </div>

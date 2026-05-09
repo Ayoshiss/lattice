@@ -13,11 +13,11 @@ export function MevMeter({ bps, maxBps = 200, color = "red", label }: Props) {
   return (
     <div className="flex flex-col gap-2">
       {label && (
-        <span className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[#3a3a5a] font-mono">
           {label}
         </span>
       )}
-      <div className="relative h-2 rounded-full bg-[#1e1e32] overflow-hidden">
+      <div className="relative h-2 rounded-full bg-[#1a1a2e] overflow-hidden">
         {bps === 0 ? (
           /* zero state: show a locked stripe pattern */
           <div
@@ -35,7 +35,7 @@ export function MevMeter({ bps, maxBps = 200, color = "red", label }: Props) {
         <span className="text-xs font-mono font-bold" style={{ color: barColor }}>
           {bps} bps
         </span>
-        <span className="text-[10px] text-[#4a4a6a] font-mono">
+        <span className="text-[10px] text-[#3a3a5a] font-mono">
           {bps === 0 && color === "green" ? "🔒 locked at zero" : `max ${maxBps} bps`}
         </span>
       </div>

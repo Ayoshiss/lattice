@@ -5,12 +5,12 @@ type Phase = "idle" | "commit" | "reveal" | "clear" | "done";
 interface Order {
   id: string;
   label: string;
-  price: number;    // limit price in USDC
+  price: number;
   isBuy: boolean;
-  sealed: boolean;  // true = grey, false = colored
+  sealed: boolean;
+  justRevealed?: boolean;
 }
 
-// Synthetic order book: our real order + market-maker + 3 simulated others
 const DEMO_ORDERS: Order[] = [
   { id: "you",  label: "You",      price: 102, isBuy: true,  sealed: true },
   { id: "mm",   label: "MM",       price: 99,  isBuy: false, sealed: true },
@@ -19,7 +19,7 @@ const DEMO_ORDERS: Order[] = [
   { id: "s1",   label: "Seller 2", price: 100, isBuy: false, sealed: true },
 ];
 
-const CLEAR_PRICE = 100.5; // midpoint between best bid/ask
+const CLEAR_PRICE = 100.5;
 
 export interface RealBatchData {
   userBuyPrice:  number;
@@ -29,7 +29,6 @@ export interface RealBatchData {
 
 interface Props {
   phase: Phase;
-  /** When provided (after on-chain clearBatch), the visualizer uses live prices. */
   realBatchData?: RealBatchData | null;
 }
 
@@ -38,62 +37,56 @@ export function BatchVisualizer({ phase, realBatchData }: Props) {
   const [sorted, setSorted]       = useState(false);
   const [clearLine, setClearLine] = useState(false);
 
-  // Build the live order set when we have real data
   const liveOrders: Order[] = realBatchData
     ? [
-        { id: "you",  label: "You",      price: realBatchData.userBuyPrice, isBuy: true,  sealed: false },
-        { id: "mm",   label: "MM",       price: realBatchData.mmSellPrice,  isBuy: false, sealed: false },
-        { id: "b1",   label: "Buyer 2",  price: realBatchData.userBuyPrice - 1, isBuy: true,  sealed: false },
-        { id: "b2",   label: "Buyer 3",  price: realBatchData.clearingPrice,     isBuy: true,  sealed: false },
-        { id: "s1",   label: "Seller 2", price: realBatchData.clearingPrice,     isBuy: false, sealed: false },
+        { id: "you",  label: "You",      price: realBatchData.userBuyPrice,         isBuy: true,  sealed: false },
+        { id: "mm",   label: "MM",       price: realBatchData.mmSellPrice,          isBuy: false, sealed: false },
+        { id: "b1",   label: "Buyer 2",  price: realBatchData.userBuyPrice - 1,     isBuy: true,  sealed: false },
+        { id: "b2",   label: "Buyer 3",  price: realBatchData.clearingPrice,        isBuy: true,  sealed: false },
+        { id: "s1",   label: "Seller 2", price: realBatchData.clearingPrice,        isBuy: false, sealed: false },
       ]
     : DEMO_ORDERS;
 
-  // Determine current clearing price and axis bounds
   const activePrice = realBatchData ? realBatchData.clearingPrice : CLEAR_PRICE;
   const basePrices  = liveOrders.map(o => o.price);
   const minP = Math.min(...basePrices) - 1;
   const maxP = Math.max(...basePrices) + 1;
   const range = maxP - minP || 1;
 
-  // When phase transitions, update visual state
   useEffect(() => {
-    if (phase === "idle") {
-      // Always reset to sealed DEMO_ORDERS — prevents stale realBatchData flicker on re-run
-      setOrders(DEMO_ORDERS.map(o => ({ ...o, sealed: true })));
-      setSorted(false);
-      setClearLine(false);
-    }
-
-    if (phase === "commit") {
-      // Same: always start from sealed demo orders; real data isn't available yet
-      setOrders(DEMO_ORDERS.map(o => ({ ...o, sealed: true })));
+    if (phase === "idle" || phase === "commit") {
+      setOrders(DEMO_ORDERS.map(o => ({ ...o, sealed: true, justRevealed: false })));
       setSorted(false);
       setClearLine(false);
     }
 
     if (phase === "reveal") {
-      // Reveal one by one with stagger using the current liveOrders snapshot
       liveOrders.forEach((o, i) => {
         setTimeout(() => {
-          setOrders(prev => prev.map(p => p.id === o.id ? { ...p, sealed: false } : p));
-        }, i * 350);
+          setOrders(prev =>
+            prev.map(p =>
+              p.id === o.id ? { ...p, sealed: false, justRevealed: true } : p
+            )
+          );
+          // Clear the "just revealed" flag after animation
+          setTimeout(() => {
+            setOrders(prev =>
+              prev.map(p => p.id === o.id ? { ...p, justRevealed: false } : p)
+            );
+          }, 600);
+        }, i * 380);
       });
       setSorted(false);
       setClearLine(false);
     }
 
     if (phase === "clear") {
-      // Sort by price + show clearing line
       setTimeout(() => setSorted(true),    400);
-      setTimeout(() => setClearLine(true), 900);
+      setTimeout(() => setClearLine(true), 950);
     }
 
     if (phase === "done") {
-      // If real data arrived, switch to live orders (all revealed)
-      if (realBatchData) {
-        setOrders(liveOrders);
-      }
+      if (realBatchData) setOrders(liveOrders);
       setSorted(true);
       setClearLine(true);
     }
@@ -102,33 +95,51 @@ export function BatchVisualizer({ phase, realBatchData }: Props) {
 
   if (phase === "idle") return null;
 
-  // Sort orders: buys descending, sells ascending — all by price for visualisation
   const displayOrders = sorted
     ? [...orders].sort((a, b) => b.price - a.price)
     : orders;
 
-  const barWidth = (price: number) =>
-    `${Math.round(((price - minP) / range) * 100)}%`;
-
+  const barPct  = (price: number) => `${Math.round(((price - minP) / range) * 100)}%`;
   const clearPct = `${Math.round(((activePrice - minP) / range) * 100)}%`;
-
-  const isLive = !!realBatchData && (phase === "done" || phase === "clear");
+  const isLive   = !!realBatchData && (phase === "done" || phase === "clear");
 
   return (
-    <div className="rounded-lg border border-[#1e1e32] bg-[#0a0a14] px-4 py-3">
-      <div className="text-[10px] uppercase tracking-widest text-[#4a4a6a] font-mono mb-3 flex items-center gap-2 flex-wrap">
-        Batch order book
-        {phase === "commit" && <span className="text-[#4a4a6a] normal-case">— orders sealed, contents hidden</span>}
-        {phase === "reveal" && <span className="text-[#00d4ff] normal-case animate-pulse">— revealing…</span>}
-        {phase === "clear"  && <span className="text-[#00ff88] normal-case">— finding clearing price p*</span>}
-        {phase === "done"   && <span className="text-[#00ff88] normal-case">— settled at {activePrice} USDC/SOL</span>}
+    <div className="rounded-xl border border-[#1a1a2e] bg-[#080812] px-4 py-3">
+
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[#3a3a5a] font-mono">
+          Batch order book
+        </span>
+        {phase === "commit" && (
+          <span className="text-[10px] font-mono text-[#f0b42988]">
+            — sealed, contents hidden
+          </span>
+        )}
+        {phase === "reveal" && (
+          <span className="text-[10px] font-mono text-[#a78bfa] animate-pulse">
+            — revealing…
+          </span>
+        )}
+        {phase === "clear" && (
+          <span className="text-[10px] font-mono text-[#00ff88]">
+            — finding clearing price p*
+          </span>
+        )}
+        {phase === "done" && (
+          <span className="text-[10px] font-mono text-[#00ff88]">
+            — settled at {activePrice} USDC/SOL
+          </span>
+        )}
         {isLive && (
-          <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded border border-[#00d4ff44] text-[#00d4ff] bg-[#00d4ff08] normal-case uppercase tracking-wider">
-            live
+          <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded border border-[#00d4ff44]
+                           text-[#00d4ff] bg-[#00d4ff08] uppercase tracking-wider font-mono">
+            LIVE
           </span>
         )}
       </div>
 
+      {/* Order rows */}
       <div className="space-y-1.5 relative">
         {displayOrders.map(order => (
           <div
@@ -137,46 +148,67 @@ export function BatchVisualizer({ phase, realBatchData }: Props) {
           >
             {/* Label */}
             <div className={`w-14 text-right text-[10px] font-mono shrink-0 transition-colors duration-500 ${
-              order.id === "you" ? "text-[#00ff88] font-bold" : "text-[#4a4a6a]"
+              order.id === "you" ? "text-[#00ff88] font-bold" : "text-[#3a3a5a]"
             }`}>
               {order.label}
             </div>
 
             {/* Bar */}
             <div className="flex-1 relative h-5">
-              <div
-                className={`h-full rounded transition-all duration-700 flex items-center justify-end pr-1.5 ${
-                  order.sealed
-                    ? "bg-[#2a2a4a]"
-                    : order.isBuy
-                    ? order.id === "you"
-                      ? "bg-[#00ff8866] border border-[#00ff8844]"
-                      : "bg-[#00ff8833]"
-                    : "bg-[#ff3b5c33] border border-[#ff3b5c22]"
-                }`}
-                style={{ width: order.sealed ? "45%" : barWidth(order.price) }}
-              >
-                {!order.sealed && (
-                  <span className={`text-[9px] font-mono font-bold transition-opacity duration-300 ${
-                    order.isBuy ? "text-[#00ff88]" : "text-[#ff3b5c]"
-                  }`}>
+              {order.sealed ? (
+                /* Sealed bar — gold shimmer */
+                <div className="h-full rounded overflow-hidden relative bg-[#1a1a2e]" style={{ width: "48%" }}>
+                  {/* Gold shimmer sweep */}
+                  <div
+                    className="absolute inset-0 animate-shimmer"
+                    style={{
+                      background: "linear-gradient(90deg, #f0b42900 0%, #f0b42922 40%, #f0b42944 50%, #f0b42922 60%, #f0b42900 100%)",
+                      backgroundSize: "200% 100%",
+                    }}
+                  />
+                  {/* Sealed label */}
+                  <div className="absolute inset-0 flex items-center pl-2">
+                    <span className="text-[9px] font-mono text-[#f0b42955] tracking-[0.3em] select-none">
+                      ·  ·  ·  ·  ·
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* Revealed bar */
+                <div
+                  className={`h-full rounded flex items-center justify-end pr-1.5 transition-all duration-700 ${
+                    order.justRevealed ? "animate-[revealBar_0.5s_cubic-bezier(0.22,1,0.36,1)_both]" : ""
+                  } ${
+                    order.isBuy
+                      ? order.id === "you"
+                        ? "border border-[#00ff8844]"
+                        : ""
+                      : "border border-[#ff3b5c22]"
+                  }`}
+                  style={{
+                    width: barPct(order.price),
+                    backgroundColor: order.isBuy
+                      ? order.id === "you" ? "#00ff8855" : "#00ff8828"
+                      : "#ff3b5c28",
+                  }}
+                >
+                  <span
+                    className="text-[9px] font-mono font-bold"
+                    style={{ color: order.isBuy ? "#00ff88" : "#ff3b5c" }}
+                  >
                     {order.price}
                   </span>
-                )}
-              </div>
-
-              {/* Sealed overlay */}
-              {order.sealed && (
-                <div className="absolute inset-0 flex items-center pl-2">
-                  <span className="text-[9px] font-mono text-[#2a2a4a]">████████</span>
                 </div>
               )}
             </div>
 
             {/* Side badge */}
-            <div className={`w-8 text-[9px] font-mono shrink-0 transition-opacity duration-300 ${
-              order.sealed ? "opacity-0" : "opacity-100"
-            } ${order.isBuy ? "text-[#00ff8888]" : "text-[#ff3b5c88]"}`}>
+            <div
+              className={`w-8 text-[9px] font-mono shrink-0 transition-opacity duration-300 ${
+                order.sealed ? "opacity-0" : "opacity-100"
+              }`}
+              style={{ color: order.isBuy ? "#00ff8888" : "#ff3b5c88" }}
+            >
               {order.isBuy ? "BUY" : "SELL"}
             </div>
           </div>
@@ -185,23 +217,30 @@ export function BatchVisualizer({ phase, realBatchData }: Props) {
         {/* Clearing price line */}
         {clearLine && (
           <div
-            className="absolute top-0 bottom-0 w-px bg-[#00d4ff] opacity-80 transition-all duration-700"
-            style={{ left: `calc(3.5rem + 0.5rem + ${clearPct})` }}
+            className="absolute top-0 bottom-0 w-px transition-all duration-700"
+            style={{
+              left: `calc(3.5rem + 0.5rem + ${clearPct})`,
+              backgroundColor: "#f0b429",
+              boxShadow: "0 0 0 1px #f0b42966, 0 0 12px #f0b42944",
+            }}
           >
-            <div className="absolute -top-5 left-1 text-[9px] font-mono text-[#00d4ff] whitespace-nowrap font-bold">
-              p* = {CLEAR_PRICE}
+            <div
+              className="absolute -top-5 left-2 text-[9px] font-mono whitespace-nowrap font-bold"
+              style={{ color: "#f0b429" }}
+            >
+              p* = {activePrice}
             </div>
           </div>
         )}
       </div>
 
       {/* Price axis */}
-      <div className="flex justify-between mt-2 pl-16 text-[9px] font-mono text-[#2a2a4a]">
+      <div className="flex justify-between mt-2 pl-16 text-[9px] font-mono text-[#2a2a42]">
         <span>{minP.toFixed(0)}</span>
         <span>{(minP + range / 2).toFixed(1)}</span>
         <span>{maxP.toFixed(0)}</span>
       </div>
-      <div className="pl-16 text-[9px] font-mono text-[#2a2a4a] text-center -mt-0.5">
+      <div className="pl-16 text-[9px] font-mono text-[#2a2a42] text-center -mt-0.5">
         limit price (USDC/SOL)
       </div>
     </div>

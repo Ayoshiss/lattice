@@ -433,17 +433,17 @@ export default function Demo() {
             {/* Solana devnet badge */}
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-[#00ff88] shadow-[0_0_6px_#00ff88] animate-pulse" />
-              <span className="text-[11px] font-mono text-[#4a4a6a]">Solana devnet live</span>
+              <span className="text-[11px] font-mono text-[#3a3a5a]">Solana devnet live</span>
             </div>
 
             {/* Relay status badge */}
             <div className={`hidden sm:flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors ${
-              relayStatus === "checking" ? "border-[#4a4a6a44] text-[#4a4a6a]" :
+              relayStatus === "checking" ? "border-[#3a3a5a44] text-[#3a3a5a]" :
               relayStatus === "online"   ? "border-[#00ff8844] text-[#00ff88] bg-[#00ff8808]" :
                                           "border-[#ff3b5c44] text-[#ff3b5c] bg-[#ff3b5c08]"
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${
-                relayStatus === "checking" ? "bg-[#4a4a6a]" :
+                relayStatus === "checking" ? "bg-[#3a3a5a]" :
                 relayStatus === "online"   ? "bg-[#00ff88] shadow-[0_0_4px_#00ff88]" :
                                             "bg-[#ff3b5c]"
               }`} />
@@ -469,10 +469,10 @@ export default function Demo() {
               <span className="text-[12px] font-mono text-[#ff3b5c] font-semibold">
                 Relay offline —
               </span>
-              <span className="text-[12px] font-mono text-[#e0e0f0]">
+              <span className="text-[12px] font-mono text-[#f1f0f7]">
                 {" "}the x402 private relay isn&rsquo;t running. The Lattice and Agent panels will fail.
               </span>
-              <span className="text-[12px] font-mono text-[#4a4a6a]">
+              <span className="text-[12px] font-mono text-[#3a3a5a]">
                 {" "}Start it with:{" "}
               </span>
               <code className="text-[11px] font-mono text-[#00d4ff] bg-[#00d4ff0a] border border-[#00d4ff22] rounded px-1.5 py-0.5">
@@ -481,7 +481,7 @@ export default function Demo() {
             </div>
             <button
               onClick={() => setRelayBannerDismissed(true)}
-              className="text-[#4a4a6a] hover:text-[#e0e0f0] text-sm font-mono shrink-0"
+              className="text-[#3a3a5a] hover:text-[#f1f0f7] text-sm font-mono shrink-0"
               aria-label="Dismiss"
             >
               ✕
@@ -569,11 +569,11 @@ export default function Demo() {
         {/* ── AI Agent Panel ──────────────────────────────────────────────── */}
         <div className="px-6 pt-6 pb-2 max-w-7xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-[#1e1e32]" />
-            <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest px-3">
+            <div className="flex-1 h-px bg-[#1a1a2e]" />
+            <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-widest px-3">
               Step 3 — autonomous AI agent
             </div>
-            <div className="flex-1 h-px bg-[#1e1e32]" />
+            <div className="flex-1 h-px bg-[#1a1a2e]" />
           </div>
           <AgentPanel />
         </div>
@@ -586,7 +586,7 @@ export default function Demo() {
                 <div className="text-lg font-bold text-[#00ff88] mb-1">
                   ✅ Same trade. Completely different outcome.
                 </div>
-                <div className="text-sm text-[#4a4a6a] font-mono">
+                <div className="text-sm text-[#3a3a5a] font-mono">
                   Lattice didn't improve execution — it made bot attacks structurally impossible.
                 </div>
               </div>
@@ -594,18 +594,18 @@ export default function Demo() {
                 <div className="rounded-lg bg-[#ff3b5c0a] border border-[#ff3b5c33] p-4 text-center">
                   <div className="text-[10px] font-mono text-[#ff3b5c88] uppercase tracking-widest mb-1">Regular DEX</div>
                   <div className="text-2xl font-mono font-bold text-[#ff3b5c]">{toDisplay(result.victimOutAfter)} SOL</div>
-                  <div className="text-[11px] font-mono text-[#4a4a6a] mt-1">Bot took $99.74 from you</div>
+                  <div className="text-[11px] font-mono text-[#3a3a5a] mt-1">Bot took $99.74 from you</div>
                 </div>
                 <div className="flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-2xl font-mono font-bold text-[#00ff88]">+{toDisplay(result.latticeImprovementSol)} SOL</div>
-                    <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest mt-1">You keep more</div>
+                    <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-widest mt-1">You keep more</div>
                   </div>
                 </div>
                 <div className="rounded-lg bg-[#00ff880a] border border-[#00ff8833] p-4 text-center">
                   <div className="text-[10px] font-mono text-[#00ff8888] uppercase tracking-widest mb-1">Lattice</div>
                   <div className="text-2xl font-mono font-bold text-[#00ff88]">{toDisplay(result.latticeVictimSol)} SOL</div>
-                  <div className="text-[11px] font-mono text-[#4a4a6a] mt-1">Bot profit: $0.00</div>
+                  <div className="text-[11px] font-mono text-[#3a3a5a] mt-1">Bot profit: $0.00</div>
                 </div>
               </div>
             </div>
@@ -629,7 +629,7 @@ export default function Demo() {
 
         {/* ── How it works ─────────────────────────────────────────────────── */}
         <div className="max-w-7xl mx-auto px-6 pb-16">
-          <div className="border border-[#1e1e32] rounded-xl bg-[#0f0f1a] p-6">
+          <div className="border border-[#1a1a2e] rounded-xl bg-[#0c0c1a] p-6">
             <h2 className="font-semibold text-sm text-[#00d4ff] uppercase tracking-widest mb-6 text-center">
               Why bots can&rsquo;t attack Lattice
             </h2>
@@ -660,7 +660,7 @@ export default function Demo() {
                     <div className="font-semibold text-sm mb-2" style={{ color: s.color }}>
                       {s.title}
                     </div>
-                    <div className="text-[12px] text-[#4a4a6a] leading-5">
+                    <div className="text-[12px] text-[#3a3a5a] leading-5">
                       {s.desc}
                     </div>
                   </div>
