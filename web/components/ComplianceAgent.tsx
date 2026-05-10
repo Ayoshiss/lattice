@@ -112,15 +112,22 @@ export function ComplianceAgent() {
   }, [loading]);
 
   return (
-    <div className="rounded-xl border border-[#00d4ff22] bg-[#0f0f1a] overflow-hidden">
+    <div className="rounded-2xl border border-[#00d4ff22] bg-[#0c0c1a] overflow-hidden
+                    shadow-[0_0_0_1px_#00d4ff11,0_0_40px_#00d4ff08]">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#1e1e32] bg-[#00d4ff06]">
-        <span className="text-lg">⚖️</span>
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#00d4ff1a] bg-gradient-to-r from-[#00d4ff08] to-transparent">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+          <line x1="8" y1="1" x2="8" y2="15" stroke="#00d4ff" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="3" y1="4" x2="13" y2="4" stroke="#00d4ff" strokeWidth="1.2" strokeLinecap="round"/>
+          <path d="M2 4L1 7.5h4L3.5 4" stroke="#00d4ff" strokeWidth="1" strokeLinejoin="round"/>
+          <path d="M10 4l-1.5 3.5h4L11 4" stroke="#00d4ff" strokeWidth="1" strokeLinejoin="round"/>
+          <line x1="4" y1="14" x2="12" y2="14" stroke="#00d4ff44" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
         <div>
-          <div className="font-mono text-sm font-bold text-[#00d4ff] tracking-wide">
+          <div className="font-mono text-sm font-bold text-[#00d4ff] tracking-[0.08em]">
             Compliance Agent
           </div>
-          <div className="text-[10px] font-mono text-[#4a4a6a] mt-0.5">
+          <div className="text-[10px] font-mono text-[#3a3a5a] mt-0.5">
             Answers grounded in Lattice VARA compliance analysis · not legal advice
           </div>
         </div>
@@ -138,7 +145,7 @@ export function ComplianceAgent() {
       <div className="h-72 overflow-y-auto px-5 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="space-y-2">
-            <div className="text-[11px] font-mono text-[#4a4a6a] mb-3">
+            <div className="text-[11px] font-mono text-[#3a3a5a] mb-3">
               Ask anything about Lattice&apos;s regulatory status, AML approach, or VARA classification:
             </div>
             {SUGGESTED.map(q => (
@@ -146,7 +153,7 @@ export function ComplianceAgent() {
                 key={q}
                 onClick={() => ask(q)}
                 className="block w-full text-left text-[11px] font-mono px-3 py-2 rounded-lg
-                           border border-[#1e1e32] text-[#6a6a8a]
+                           border border-[#1a1a2e] text-[#6a6a8a]
                            hover:border-[#00d4ff33] hover:text-[#00d4ff] transition-colors"
               >
                 {q}
@@ -159,8 +166,8 @@ export function ComplianceAgent() {
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-lg px-3 py-2 text-[12px] font-mono leading-5 ${
               m.role === "user"
-                ? "bg-[#00d4ff18] border border-[#00d4ff33] text-[#e0e0f0]"
-                : "bg-[#ffffff04] border border-[#1e1e32] text-[#c0c0e0]"
+                ? "bg-[#00d4ff18] border border-[#00d4ff33] text-[#f1f0f7]"
+                : "bg-[#ffffff04] border border-[#1a1a2e] text-[#c0c0e0]"
             }`}>
               {m.text}
               {m.streaming && (
@@ -173,7 +180,7 @@ export function ComplianceAgent() {
       </div>
 
       {/* Input */}
-      <div className="px-5 py-3 border-t border-[#1e1e32] flex gap-2">
+      <div className="px-5 py-3 border-t border-[#1a1a2e] flex gap-2">
         <input
           type="text"
           value={input}
@@ -181,8 +188,8 @@ export function ComplianceAgent() {
           onKeyDown={e => { if (e.key === "Enter" && !loading) ask(input); }}
           placeholder="Ask a compliance question…"
           disabled={loading}
-          className="flex-1 bg-[#0a0a14] border border-[#1e1e32] rounded-lg px-3 py-2
-                     text-[12px] font-mono text-[#e0e0f0] placeholder-[#2a2a4a]
+          className="flex-1 bg-[#0a0a14] border border-[#1a1a2e] rounded-lg px-3 py-2
+                     text-[12px] font-mono text-[#f1f0f7] placeholder-[#2a2a4a]
                      focus:outline-none focus:border-[#00d4ff55] disabled:opacity-50"
         />
         <button

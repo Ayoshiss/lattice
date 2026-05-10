@@ -96,18 +96,18 @@ export default function Demo() {
     await delay(300);
     l("You submit: buy 10,000 USDC worth of SOL");
     await delay(400);
-    l("⚠ Your order is now visible to everyone in the mempool", "warn");
+    l("Your order is now visible to everyone in the mempool", "warn");
     await delay(500);
-    l("🤖 Bot detected your order — front-running now", "error");
+    l("Bot detected your order — front-running now", "error");
     l("Bot buys 5,000 USDC of SOL ahead of you → price moves up", "error");
     await delay(400);
     l("Pool is now skewed against you", "error");
     await delay(500);
     l("Your trade executes — at the worse, bot-inflated price", "error");
     await delay(300);
-    l("🤖 Bot sells its SOL right after you → locks in profit", "error");
+    l("Bot sells its SOL right after you → locks in profit", "error");
     await delay(200);
-    l("💸 Bot extracted $99.74 from your trade (98 bps)", "error");
+    l("Bot extracted $99.74 from your trade (98 bps)", "error");
     l("You received 2.97 fewer SOL than you should have", "error");
     setAmmRunning(false);
     setAmmDone(true);
@@ -142,7 +142,7 @@ export default function Demo() {
 
       // ── Phase 1: Commit via x402 relay ────────────────────────────────────
       setPhase("commit");
-      l("🔒 Phase 1: Sealing your order");
+      l("Phase 1: Sealing your order");
       l("Setting up test tokens on Solana devnet…");
       const tokenIn  = await createMint(connection, payer, payer.publicKey, null, 6);
       const tokenOut = await createMint(connection, payer, payer.publicKey, null, 6);
@@ -295,7 +295,7 @@ export default function Demo() {
 
       // ── Phase 2: Reveal ────────────────────────────────────────────────────
       setPhase("reveal");
-      l("🔓 Phase 2: Waiting for commit window to close…");
+      l("Phase 2: Waiting for commit window to close…");
       const ps = await prog.account.batchAuctionPool.fetch(pool);
       const windowEnd = ps.phaseStartSlot.toNumber() + COMMIT_SLOTS + 1;
       let curSlot = await connection.getSlot("confirmed");
@@ -327,7 +327,7 @@ export default function Demo() {
 
       // ── Phase 3: Clear ────────────────────────────────────────────────────
       setPhase("clear");
-      l("⚖️ Phase 3: Finding the fairest clearing price…");
+      l("Phase 3: Finding the fairest clearing price…");
       const ps2 = await prog.account.batchAuctionPool.fetch(pool);
       const revealEnd = ps2.phaseStartSlot.toNumber() + REVEAL_SLOTS + 1;
       let curSlot2 = await connection.getSlot("confirmed");
@@ -356,7 +356,7 @@ export default function Demo() {
         l(`Clearing price p* = ${clearingPrice} USDC/SOL (live)`, "success");
 
         // ── Phase 4: Settle — transfer tokens from vaults to payers ──────────
-        l("💸 Phase 4: Settling tokens to payers…");
+        l("Phase 4: Settling tokens to payers…");
         // remaining_accounts: one writable ATA per order slot, in pool order.
         //   Slot 0 = user buy  → receives token_out (userAtaOut)
         //   Slot 1 = MM   sell → receives token_in  (userAta)
@@ -386,7 +386,7 @@ export default function Demo() {
       }
 
       setPhase("done");
-      l("✅ Done. Zero bot interference. You kept every cent.", "success");
+      l("Done. Zero bot interference. You kept every cent.", "success");
       saveOrder({
         id:           crypto.randomUUID(),
         timestamp:    Date.now(),
@@ -464,7 +464,11 @@ export default function Demo() {
         {/* ── Relay offline warning ─────────────────────────────────────── */}
         {relayStatus === "offline" && !relayBannerDismissed && (
           <div className="border-b border-[#ff3b5c44] bg-[#ff3b5c0a] px-6 py-3 flex items-start gap-3">
-            <span className="text-[#ff3b5c] text-sm shrink-0 mt-0.5">⚠</span>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5">
+              <path d="M7 1.5L12.5 11.5H1.5L7 1.5Z" stroke="#ff3b5c" strokeWidth="1.2" strokeLinejoin="round"/>
+              <line x1="7" y1="5.5" x2="7" y2="8.5" stroke="#ff3b5c" strokeWidth="1.2" strokeLinecap="round"/>
+              <circle cx="7" cy="10" r="0.7" fill="#ff3b5c"/>
+            </svg>
             <div className="flex-1 min-w-0">
               <span className="text-[12px] font-mono text-[#ff3b5c] font-semibold">
                 Relay offline —
@@ -583,8 +587,12 @@ export default function Demo() {
           <div className="max-w-7xl mx-auto px-6 pb-6">
             <div className="rounded-xl border border-[#00ff8844] bg-[#00ff8808] p-6">
               <div className="text-center mb-6">
-                <div className="text-lg font-bold text-[#00ff88] mb-1">
-                  ✅ Same trade. Completely different outcome.
+                <div className="flex items-center justify-center gap-2 font-bold text-[#00ff88] mb-1 text-lg">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <circle cx="9" cy="9" r="8" stroke="#00ff88" strokeWidth="1.2"/>
+                    <path d="M5 9l3 3 5-5" stroke="#00ff88" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Same trade. Completely different outcome.
                 </div>
                 <div className="text-sm text-[#3a3a5a] font-mono">
                   Lattice didn't improve execution — it made bot attacks structurally impossible.
@@ -636,26 +644,44 @@ export default function Demo() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 {
-                  icon: "🔒",
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <rect x="3" y="9" width="14" height="10" rx="2" stroke="#00d4ff" strokeWidth="1.3"/>
+                      <path d="M6 9V7a4 4 0 018 0v2" stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round"/>
+                      <circle cx="10" cy="14" r="1.5" fill="#00d4ff"/>
+                    </svg>
+                  ),
                   title: "You seal your order first",
                   color: "#00d4ff",
                   desc: "Before your order hits the blockchain, it's encrypted into a hash. Bots can see that you submitted something — but not what you're buying, at what price, or for how much.",
                 },
                 {
-                  icon: "⏱️",
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <circle cx="10" cy="10" r="8" stroke="#00d4ff" strokeWidth="1.3"/>
+                      <path d="M10 5v5l3 3" stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  ),
                   title: "Everyone reveals at the same time",
                   color: "#00d4ff",
                   desc: "Once the submission window closes, all traders reveal their orders simultaneously. There's no way for a bot to \"go first\" — the window is already shut.",
                 },
                 {
-                  icon: "⚖️",
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <line x1="10" y1="2" x2="10" y2="18" stroke="#00ff88" strokeWidth="1.3" strokeLinecap="round"/>
+                      <line x1="4" y1="5" x2="16" y2="5" stroke="#00ff88" strokeWidth="1.3" strokeLinecap="round"/>
+                      <path d="M3 5L1 10h5L4 5" stroke="#00ff88" strokeWidth="1.1" strokeLinejoin="round"/>
+                      <path d="M13 5l-2 5h5l-2-5" stroke="#00ff88" strokeWidth="1.1" strokeLinejoin="round"/>
+                    </svg>
+                  ),
                   title: "One fair price for everyone",
                   color: "#00ff88",
                   desc: "A single clearing price is calculated from all revealed orders. Every buyer and seller in the batch gets exactly the same price — there's no room for bots to exploit price differences.",
                 },
               ].map((s) => (
                 <div key={s.title} className="flex gap-4">
-                  <div className="text-2xl shrink-0 mt-0.5">{s.icon}</div>
+                  <div className="shrink-0 mt-0.5">{s.icon}</div>
                   <div>
                     <div className="font-semibold text-sm mb-2" style={{ color: s.color }}>
                       {s.title}

@@ -36,7 +36,15 @@ export function MevMeter({ bps, maxBps = 200, color = "red", label }: Props) {
           {bps} bps
         </span>
         <span className="text-[10px] text-[#3a3a5a] font-mono">
-          {bps === 0 && color === "green" ? "🔒 locked at zero" : `max ${maxBps} bps`}
+          {bps === 0 && color === "green" ? (
+            <span className="flex items-center gap-1">
+              <svg width="9" height="9" viewBox="0 0 10 12" fill="none">
+                <rect x="1" y="5" width="8" height="7" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M2.5 5V4a2.5 2.5 0 015 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              locked at zero
+            </span>
+          ) : `max ${maxBps} bps`}
         </span>
       </div>
     </div>
