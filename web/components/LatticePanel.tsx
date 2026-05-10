@@ -9,6 +9,8 @@ interface SlotInfo {
   label: string;
 }
 
+type PreflightState = "checking" | "ready" | "underfunded" | "unconfigured";
+
 interface Props {
   result: SimResult;
   logs: LogEntry[];
@@ -18,6 +20,8 @@ interface Props {
   slotInfo?: SlotInfo | null;
   onSubmit: () => void;
   realBatchData?: RealBatchData | null;
+  preflightState?: PreflightState;
+  preflightMsg?: string;
 }
 
 const PHASES = ["commit", "reveal", "clear", "done"] as const;
@@ -32,7 +36,7 @@ const PHASE_META: Record<string, { label: string; color: string; barColor: strin
 };
 
 function LockSVG({ lit }: { lit: boolean }) {
-  const c = lit ? "#f0b429" : "#2a2a42";
+  const c = lit ? "#f0b429" : "#a5a5a5";
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <rect x="1.5" y="5.5" width="10" height="7" rx="1.5" stroke={c} strokeWidth="1.2" />
@@ -43,7 +47,7 @@ function LockSVG({ lit }: { lit: boolean }) {
 }
 
 function UnlockSVG({ lit }: { lit: boolean }) {
-  const c = lit ? "#a78bfa" : "#2a2a42";
+  const c = lit ? "#a78bfa" : "#a5a5a5";
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <rect x="1.5" y="5.5" width="10" height="7" rx="1.5" stroke={c} strokeWidth="1.2" />
@@ -54,7 +58,7 @@ function UnlockSVG({ lit }: { lit: boolean }) {
 }
 
 function ScalesSVG({ lit }: { lit: boolean }) {
-  const c = lit ? "#00ff88" : "#2a2a42";
+  const c = lit ? "#00ff88" : "#a5a5a5";
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <line x1="6.5" y1="1" x2="6.5" y2="12" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
@@ -100,10 +104,11 @@ const stepDefs = [
   },
 ];
 
-export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, onSubmit, realBatchData }: Props) {
+export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, onSubmit, realBatchData, preflightState = "ready", preflightMsg }: Props) {
   const done    = phase === "done";
   const phaseIdx = PHASES.indexOf(phase as typeof PHASES[number]);
   const meta    = PHASE_META[phase];
+  const preflightOk = preflightState === "ready";
 
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-[#00ff8833] bg-[#0c0c1a]
@@ -152,7 +157,7 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
                     ) : (
                       <div
                         className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                        style={{ backgroundColor: isActive ? pMeta.color : "#2a2a42" }}
+                        style={{ backgroundColor: isActive ? pMeta.color : "#a5a5a5" }}
                       />
                     )}
                     {isActive && (
@@ -185,7 +190,7 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
                 <div key={p} className="flex-1 text-center">
                   <div
                     className="text-[9px] font-mono font-bold uppercase tracking-wider transition-colors duration-300"
-                    style={{ color: isPast ? "#00ff8866" : isActive ? pMeta.color : "#2a2a42" }}
+                    style={{ color: isPast ? "#00ff8866" : isActive ? pMeta.color : "#a5a5a5" }}
                   >
                     {pMeta.label}
                   </div>
@@ -241,12 +246,37 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
         </div>
       )}
 
+      {/* Preflight banner — shown when demo env is not ready */}
+      {!preflightOk && (
+        <div className={`px-5 py-3 border-b flex items-start gap-2 ${
+          preflightState === "checking"
+            ? "border-[#3a3a5a33] bg-[#ffffff05]"
+            : "border-[#f0b42933] bg-[#f0b4290a]"
+        }`}>
+          <span className="shrink-0 mt-px text-sm">
+            {preflightState === "checking" ? "⏳" : "⚠️"}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className={`text-[11px] font-mono font-semibold ${
+              preflightState === "checking" ? "text-[#a5a5a5]" : "text-[#f0b429]"
+            }`}>
+              {preflightState === "checking" && "Checking demo wallet…"}
+              {preflightState === "underfunded" && "Demo wallet underfunded"}
+              {preflightState === "unconfigured" && "Demo environment not configured"}
+            </div>
+            {preflightMsg && (
+              <div className="text-[10px] font-mono text-[#3a3a5a] mt-0.5 break-all">{preflightMsg}</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Trade */}
       <div className="px-5 py-4 border-b border-[#1a1a2e]">
         <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-[0.18em] mb-3">Your trade</div>
         <div className="flex items-center gap-3 font-mono">
           <span className="text-[#f1f0f7] font-bold text-lg">10,000 USDC</span>
-          <span className="text-[#2a2a42]">→</span>
+          <span className="text-[#a5a5a5]">→</span>
           <span className="text-[#f1f0f7] font-bold text-lg">SOL</span>
           <span className="ml-auto text-[10px] text-[#3a3a5a]">fair ≈ 100 USDC/SOL</span>
         </div>
@@ -313,7 +343,7 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
               }`}>You receive</div>
               <div className={`text-2xl font-mono font-black transition-colors duration-500 ${
                 done ? "text-[#00ff88] count-up" :
-                phase !== "idle" ? "text-[#3a3a5a]" : "text-[#2a2a42]"
+                phase !== "idle" ? "text-[#3a3a5a]" : "text-[#a5a5a5]"
               }`}>
                 {done ? toDisplay(result.latticeVictimSol) : "—"} SOL
               </div>
@@ -328,7 +358,7 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
                 done ? "text-[#00ff8866]" : "text-[#3a3a5a]"
               }`}>Bot profit</div>
               <div className={`text-2xl font-mono font-black transition-colors duration-500 ${
-                done ? "text-[#00ff88]" : "text-[#2a2a42]"
+                done ? "text-[#00ff88]" : "text-[#a5a5a5]"
               }`}>
                 $0
               </div>
@@ -366,7 +396,7 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
       <div className="px-5 py-4">
         <button
           onClick={onSubmit}
-          disabled={running}
+          disabled={running || !preflightOk}
           className="btn-shimmer relative w-full py-3.5 rounded-xl border border-[#00ff8844] bg-[#00ff880c]
                      text-[#00ff88] text-sm font-mono font-bold tracking-wider overflow-hidden
                      hover:border-[#00ff8888] hover:bg-[#00ff8818] hover:shadow-green
@@ -374,6 +404,10 @@ export function LatticePanel({ result, logs, running, phase, txSig, slotInfo, on
         >
           {running
             ? `${PHASE_META[phase]?.label ?? "Running"}…`
+            : preflightState === "checking"
+            ? "Checking wallet…"
+            : !preflightOk
+            ? "Wallet not ready"
             : done
             ? "↺  Run Again"
             : "▶  Submit Protected Order"}

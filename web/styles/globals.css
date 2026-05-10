@@ -8,7 +8,7 @@
   --bg:      #05050f;
   --surface: #0c0c1a;
   --border:  #1a1a2e;
-  --border-bright: #2a2a42;
+  --border-bright: #a5a5a5;
   --gold:    #f0b429;
   --violet:  #a78bfa;
   --cyan:    #00d4ff;
@@ -31,7 +31,7 @@ html, body {
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: #2a2a42; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: #a5a5a5; border-radius: 2px; }
 
 /* ── Film grain noise overlay ──────────────────────────────────────────── */
 body::before {

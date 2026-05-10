@@ -32,16 +32,24 @@ export function OrderHistory() {
   const totalVolume    = orders.reduce((s, o) => s + o.amountUsdc, 0);
 
   return (
-    <div className="rounded-xl border border-[#1e1e32] bg-[#0f0f1a] overflow-hidden">
+    <div className="rounded-2xl border border-[#1a1a2e] bg-[#0c0c1a] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e1e32]">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a2e]">
         <div className="flex items-center gap-3">
-          <span className="text-lg">📋</span>
+          {/* Ledger / order history icon */}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+            <rect x="2" y="1" width="10" height="14" rx="1.5" stroke="#a5a5a5" strokeWidth="1.2"/>
+            <line x1="5" y1="5" x2="10" y2="5" stroke="#a5a5a5" strokeWidth="1" strokeLinecap="round"/>
+            <line x1="5" y1="8" x2="10" y2="8" stroke="#a5a5a5" strokeWidth="1" strokeLinecap="round"/>
+            <line x1="5" y1="11" x2="8"  y2="11" stroke="#a5a5a5" strokeWidth="1" strokeLinecap="round"/>
+            <rect x="10" y="9" width="4" height="6" rx="1" fill="#00ff88" opacity="0.9"/>
+            <path d="M11.5 12.5l.8.8 1.2-1.5" stroke="#0c0c1a" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <div>
-            <div className="font-mono text-sm font-bold text-[#e0e0f0] tracking-wide">
+            <div className="font-mono text-sm font-bold text-[#f1f0f7] tracking-[0.08em]">
               Order History
             </div>
-            <div className="text-[10px] font-mono text-[#4a4a6a] mt-0.5">
+            <div className="text-[10px] font-mono text-[#3a3a5a] mt-0.5">
               {orders.length} order{orders.length !== 1 ? "s" : ""} this session · all confirmed on Solana devnet
             </div>
           </div>
@@ -50,17 +58,17 @@ export function OrderHistory() {
           {/* Summary stats */}
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-center">
-              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest">Volume</div>
-              <div className="text-sm font-mono font-bold text-[#e0e0f0]">${totalVolume.toLocaleString()}</div>
+              <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-[0.18em]">Volume</div>
+              <div className="text-sm font-mono font-bold text-[#f1f0f7]">${totalVolume.toLocaleString()}</div>
             </div>
             <div className="text-center">
-              <div className="text-[10px] font-mono text-[#4a4a6a] uppercase tracking-widest">MEV saved</div>
+              <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-[0.18em]">MEV saved</div>
               <div className="text-sm font-mono font-bold text-[#00ff88]">${totalMevSaved.toFixed(2)}</div>
             </div>
           </div>
           <button
             onClick={() => { clearOrders(); setOrders([]); }}
-            className="text-[10px] font-mono text-[#2a2a4a] hover:text-[#ff3b5c] transition-colors"
+            className="text-[10px] font-mono text-[#3a3a5a] hover:text-[#ff3b5c] transition-colors"
           >
             clear
           </button>
@@ -71,21 +79,21 @@ export function OrderHistory() {
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] font-mono">
           <thead>
-            <tr className="border-b border-[#1e1e32]">
-              <th className="text-left px-5 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal">Time</th>
-              <th className="text-left px-3 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal">Type</th>
-              <th className="text-left px-3 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal">Amount</th>
-              <th className="text-left px-3 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal hidden sm:table-cell">Token</th>
-              <th className="text-left px-3 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal hidden sm:table-cell">Slices</th>
-              <th className="text-right px-3 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal">MEV saved</th>
-              <th className="text-right px-5 py-2 text-[#2a2a4a] uppercase tracking-wider font-normal">Tx</th>
+            <tr className="border-b border-[#1a1a2e]">
+              <th className="text-left px-5 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal">Time</th>
+              <th className="text-left px-3 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal">Type</th>
+              <th className="text-left px-3 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal">Amount</th>
+              <th className="text-left px-3 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal hidden sm:table-cell">Token</th>
+              <th className="text-left px-3 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal hidden sm:table-cell">Slices</th>
+              <th className="text-right px-3 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal">MEV saved</th>
+              <th className="text-right px-5 py-2 text-[#3a3a5a] uppercase tracking-wider font-normal">Tx</th>
             </tr>
           </thead>
           <tbody>
             {orders.map((o, idx) => (
               <tr
                 key={o.id}
-                className={`border-b border-[#0a0a14] transition-colors duration-700 ${
+                className={`border-b border-[#080812] transition-colors duration-700 ${
                   flash === o.id
                     ? "bg-[#00ff8808]"
                     : idx % 2 === 0
@@ -93,7 +101,7 @@ export function OrderHistory() {
                     : ""
                 }`}
               >
-                <td className="px-5 py-2.5 text-[#4a4a6a] whitespace-nowrap">
+                <td className="px-5 py-2.5 text-[#3a3a5a] whitespace-nowrap">
                   {timeAgo(o.timestamp)}
                 </td>
                 <td className="px-3 py-2.5">
@@ -105,13 +113,13 @@ export function OrderHistory() {
                     {o.type === "agent" ? "AI Agent" : "Lattice"}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-[#e0e0f0] font-semibold">
+                <td className="px-3 py-2.5 text-[#f1f0f7] font-semibold">
                   ${o.amountUsdc.toLocaleString()}
                 </td>
-                <td className="px-3 py-2.5 text-[#4a4a6a] hidden sm:table-cell">
+                <td className="px-3 py-2.5 text-[#3a3a5a] hidden sm:table-cell">
                   {o.tokenOut}
                 </td>
-                <td className="px-3 py-2.5 text-[#4a4a6a] hidden sm:table-cell">
+                <td className="px-3 py-2.5 text-[#3a3a5a] hidden sm:table-cell">
                   {o.slices ?? "—"}
                 </td>
                 <td className="px-3 py-2.5 text-right text-[#00ff88] font-semibold">
@@ -128,7 +136,7 @@ export function OrderHistory() {
                       {o.txSig.slice(0, 8)}… ↗
                     </a>
                   ) : (
-                    <span className="text-[#2a2a4a]">—</span>
+                    <span className="text-[#a5a5a5]">—</span>
                   )}
                 </td>
               </tr>

@@ -71,7 +71,7 @@ function AttackDiagram() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[11px] font-mono font-semibold leading-tight" style={{ color: row.color }}>{row.label}</div>
-            <div className="text-[9px] font-mono text-[#2a2a42] tracking-wider mt-0.5">{row.sub}</div>
+            <div className="text-[9px] font-mono text-[#a5a5a5] tracking-wider mt-0.5">{row.sub}</div>
           </div>
           {row.bot    && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f0b42912] border border-[#f0b42933] text-[#f0b429] shrink-0">BOT</span>}
           {row.attack && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#ff3b5c12] border border-[#ff3b5c33] text-[#ff3b5c] shrink-0">ATTACK</span>}
@@ -111,7 +111,7 @@ function DefenseDiagram() {
                style={{ background: row.seal ? "#f0b429" : row.shield ? "#a78bfa" : (row.dot ?? "#6b6b8a") }} />
           <div className="flex-1 min-w-0">
             <div className="text-[11px] font-mono font-semibold leading-tight" style={{ color: row.color }}>{row.label}</div>
-            <div className="text-[9px] font-mono text-[#2a2a42] tracking-wider mt-0.5">{row.sub}</div>
+            <div className="text-[9px] font-mono text-[#a5a5a5] tracking-wider mt-0.5">{row.sub}</div>
           </div>
           {row.seal   && <SealedHash />}
           {row.shield && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#a78bfa12] border border-[#a78bfa33] text-[#a78bfa] shrink-0">BLOCKED</span>}
@@ -144,7 +144,21 @@ export default function Home() {
       <Head>
         <title>Lattice — Front-running is now impossible</title>
         <meta name="description" content="Lattice seals every order with SHA-256 cryptography. Bots can't front-run what they can't see." />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        {/* OG */}
+        <meta property="og:type"        content="website" />
+        <meta property="og:title"       content="Lattice — Front-running is now impossible" />
+        <meta property="og:description" content="Sealed-bid batch auction DEX on Solana. Bots can't front-run what they can't see." />
+        <meta property="og:image"       content="/api/og" />
+        <meta property="og:image:width"  content="1200" />
+        <meta property="og:image:height" content="630" />
+
+        {/* Twitter */}
+        <meta name="twitter:card"        content="summary_large_image" />
+        <meta name="twitter:title"       content="Lattice — Front-running is now impossible" />
+        <meta name="twitter:description" content="Sealed-bid batch auction DEX on Solana. Bots can't front-run what they can't see." />
+        <meta name="twitter:image"       content="/api/og" />
       </Head>
 
       {/* ── Ambient background ──────────────────────────────────────── */}
@@ -174,9 +188,7 @@ export default function Home() {
         <nav className="sticky top-0 z-50 border-b border-[#1a1a2e] bg-[#05050fdd] backdrop-blur-xl
                         px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="animate-float" style={{ animationDuration: "5s" }}>
-              <Diamond size={24} gold />
-            </div>
+            <Diamond size={24} gold />
             <span className="font-mono font-bold text-[17px] tracking-[0.1em]">LATTICE</span>
           </div>
           <div className="flex items-center gap-4">
@@ -186,7 +198,7 @@ export default function Home() {
             </div>
             <a href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
                target="_blank" rel="noopener noreferrer"
-               className="hidden md:block text-[11px] font-mono text-[#2a2a42] hover:text-[#00d4ff] transition-colors">
+               className="hidden md:block text-[11px] font-mono text-[#a5a5a5] hover:text-[#00d4ff] transition-colors">
               AW8zeS7…F6iV ↗
             </a>
             <Link href="/demo" className="btn-shimmer inline-flex items-center gap-2 px-4 py-2 rounded-lg
@@ -237,7 +249,7 @@ export default function Home() {
             </Link>
             <a href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
                target="_blank" rel="noopener noreferrer"
-               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-[#2a2a42]
+               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-[#a5a5a5]
                           text-sm font-mono text-[#6b6b8a] hover:border-[#3a3a52] hover:text-[#a78bfa] transition-all">
               View on Explorer ↗
             </a>
@@ -246,13 +258,13 @@ export default function Home() {
           {/* Live MEV counter */}
           <div className={`transition-all duration-600 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
                style={{ transitionDelay: "320ms" }}>
-            <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.25em] mb-3">
+            <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.25em] mb-3">
               MEV extracted from DEX traders in 2024
             </div>
             <div className="text-4xl sm:text-5xl font-black font-mono text-gradient-red tabular-nums">
               {fmt(mev)}
             </div>
-            <div className="text-[11px] font-mono text-[#2a2a42] mt-2">
+            <div className="text-[11px] font-mono text-[#a5a5a5] mt-2">
               Source: Flashbots, EigenPhi &nbsp;·&nbsp; Lattice bot profit:{" "}
               <span className="text-[#00ff88] font-semibold">$0.00</span>
             </div>
@@ -279,7 +291,7 @@ export default function Home() {
         {/* ── Battle ──────────────────────────────────────────────── */}
         <section className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center mb-14">
-            <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.25em] mb-4">The same $10,000 trade</div>
+            <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.25em] mb-4">The same $10,000 trade</div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.02em]">Two completely different outcomes</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -318,7 +330,7 @@ export default function Home() {
         <section className="border-y border-[#1a1a2e] bg-[#07070fbb] backdrop-blur-sm py-20 px-6">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
-              <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.25em] mb-4">Protocol mechanics</div>
+              <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.25em] mb-4">Protocol mechanics</div>
               <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.02em]">How Lattice makes it impossible</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -364,7 +376,7 @@ export default function Home() {
                      style={{ borderColor: s.border, background: s.bg }}>
                   <div className="flex items-start justify-between mb-5">
                     {s.icon}
-                    <span className="text-[10px] font-mono text-[#2a2a42] font-bold tracking-wider">{s.step}</span>
+                    <span className="text-[10px] font-mono text-[#a5a5a5] font-bold tracking-wider">{s.step}</span>
                   </div>
                   <div className="text-lg font-bold mb-2 tracking-tight" style={{ color: s.color }}>{s.title}</div>
                   <p className="text-[12px] text-[#6b6b8a] leading-[1.7] mb-4">{s.desc}</p>
@@ -380,7 +392,7 @@ export default function Home() {
         {/* ── Tech proof ──────────────────────────────────────────── */}
         <section className="max-w-5xl mx-auto px-6 py-20">
           <div className="text-center mb-14">
-            <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.25em] mb-4">Technical spec</div>
+            <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.25em] mb-4">Technical spec</div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.02em]">Built for production</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -389,7 +401,7 @@ export default function Home() {
                 <div className="w-2.5 h-2.5 rounded-full bg-[#ff3b5c44]" />
                 <div className="w-2.5 h-2.5 rounded-full bg-[#f0b42944]" />
                 <div className="w-2.5 h-2.5 rounded-full bg-[#00ff8844]" />
-                <span className="ml-3 text-[10px] font-mono text-[#2a2a42]">program.log</span>
+                <span className="ml-3 text-[10px] font-mono text-[#a5a5a5]">program.log</span>
               </div>
               <div className="p-5 space-y-3">
                 {[
@@ -403,7 +415,7 @@ export default function Home() {
                   ["audit",    "Pre-audit — required before mainnet",             "#ff3b5c"],
                 ].map(([k, v, c]) => (
                   <div key={k} className="flex gap-3 items-start text-[11px] font-mono">
-                    <span className="text-[#2a2a42] shrink-0 w-16 text-right">{k}</span>
+                    <span className="text-[#a5a5a5] shrink-0 w-16 text-right">{k}</span>
                     <span className="text-[#1a1a2e]">→</span>
                     <span style={{ color: c }}>{v}</span>
                   </div>
@@ -411,7 +423,7 @@ export default function Home() {
               </div>
             </div>
             <div className="rounded-2xl border border-[#1a1a2e] bg-[#0c0c1a] p-6">
-              <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.2em] mb-1">VARA 2026 · NeosLegal Prize</div>
+              <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.2em] mb-1">VARA 2026 · NeosLegal Prize</div>
               <div className="text-sm font-bold text-[#f1f0f7] mb-5">Non-custodial DeFi carve-out</div>
               <div className="space-y-3">
                 {[
@@ -444,7 +456,7 @@ export default function Home() {
           <div className="absolute inset-0 pointer-events-none"
                style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.05) 0%, transparent 55%)" }} />
           <div className="relative max-w-xl mx-auto">
-            <div className="text-[10px] font-mono text-[#2a2a42] uppercase tracking-[0.25em] mb-6">
+            <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.25em] mb-6">
               It&rsquo;s live. Right now. On Solana devnet.
             </div>
             <h2 className="text-4xl sm:text-5xl font-black tracking-[-0.03em] mb-6 leading-[1.05]">
@@ -468,7 +480,7 @@ export default function Home() {
         <footer className="border-t border-[#1a1a2e] px-6 py-5 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Diamond size={17} gold />
-            <span className="text-[11px] font-mono text-[#2a2a42]">Lattice · Frontier Hackathon 2026</span>
+            <span className="text-[11px] font-mono text-[#a5a5a5]">Lattice · Frontier Hackathon 2026</span>
           </div>
           <div className="flex items-center gap-5">
             {[
@@ -477,7 +489,7 @@ export default function Home() {
               ["https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet", "Onchain ↗"],
             ].map(([href, label]) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer"
-                 className="text-[11px] font-mono text-[#2a2a42] hover:text-[#6b6b8a] transition-colors">
+                 className="text-[11px] font-mono text-[#a5a5a5] hover:text-[#6b6b8a] transition-colors">
                 {label}
               </a>
             ))}

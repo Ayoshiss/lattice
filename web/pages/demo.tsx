@@ -45,6 +45,9 @@ function vaultPDA(pool: PublicKey, mint: PublicKey) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+// ── Minimum tokenIn balance the Demo User needs to start a run ───────────────
+const PREFLIGHT_MIN_RAW = BigInt(100_000_000); // 100 tokens at 6 dp
+
 export default function Demo() {
   const result = runSimulation(DEFAULT_PARAMS);
 
@@ -56,6 +59,44 @@ export default function Demo() {
   const [phase,   setPhase]   = useState<Phase>("idle");
   const [txSig,   setTxSig]   = useState<string | undefined>();
   const [slotInfo, setSlotInfo] = useState<{ remaining: number; total: number; label: string } | null>(null);
+
+  // ── Pre-flight: verify Demo User ATA has enough tokenIn before enabling trade
+  type PreflightState = "checking" | "ready" | "underfunded" | "unconfigured";
+  const [preflightState, setPreflightState] = useState<PreflightState>("checking");
+  const [preflightMsg,   setPreflightMsg]   = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkPreflight() {
+      const tokenInAddr  = process.env.NEXT_PUBLIC_DEMO_TOKEN_IN;
+      const userSecretB64 = process.env.NEXT_PUBLIC_DEMO_USER_SECRET_KEY;
+      if (!tokenInAddr || !userSecretB64) {
+        if (!cancelled) { setPreflightState("unconfigured"); setPreflightMsg("Run: yarn workspace web setup:demo"); }
+        return;
+      }
+      try {
+        const { Connection, Keypair, PublicKey } = await import("@solana/web3.js");
+        const { getAssociatedTokenAddress, getAccount } = await import("@solana/spl-token");
+        const conn     = new Connection(DEVNET_RPC, "confirmed");
+        const demoUser = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(userSecretB64)));
+        const mint     = new PublicKey(tokenInAddr);
+        const ata      = await getAssociatedTokenAddress(mint, demoUser.publicKey);
+        const acct     = await getAccount(conn, ata, "confirmed");
+        if (cancelled) return;
+        if (acct.amount >= PREFLIGHT_MIN_RAW) {
+          setPreflightState("ready");
+          setPreflightMsg(`${(Number(acct.amount) / 1_000_000).toLocaleString()} tokens available`);
+        } else {
+          setPreflightState("underfunded");
+          setPreflightMsg(`Demo User ATA has ${Number(acct.amount) / 1_000_000} tokens — need ≥ 100. Run: setup:demo`);
+        }
+      } catch (e: any) {
+        if (!cancelled) { setPreflightState("underfunded"); setPreflightMsg(e.message?.slice(0, 80) ?? "Balance check failed"); }
+      }
+    }
+    checkPreflight();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Relay health state ────────────────────────────────────────────────────
   const [relayStatus, setRelayStatus] = useState<"checking" | "online" | "offline">("checking");
@@ -128,60 +169,99 @@ export default function Demo() {
     try {
       const connection = new Connection(DEVNET_RPC, "confirmed");
       const { Program, AnchorProvider, BN } = await import("@coral-xyz/anchor");
-      const { createMint, createAccount, mintTo } = await import("@solana/spl-token");
+      const { getOrCreateAssociatedTokenAccount, getAccount, createMint, mintTo } = await import("@solana/spl-token");
       const nacl  = (await import("tweetnacl")).default;
       const bs58  = (await import("bs58")).default;
       const IDL   = (await import("../anchor-idl/lattice.json")).default;
 
-      const seed  = new Uint8Array(32).fill(11); // System-program owned, funded on devnet
-      const payer = Keypair.fromSeed(seed);
+      // ── Load static demo keypairs from env (written by setup-demo.ts) ──────
+      const tokenInAddr    = process.env.NEXT_PUBLIC_DEMO_TOKEN_IN;
+      const userSecretJson = process.env.NEXT_PUBLIC_DEMO_USER_SECRET_KEY;
+      const mmSecretJson   = process.env.NEXT_PUBLIC_DEMO_MM_SECRET_KEY;
+      if (!tokenInAddr || !userSecretJson || !mmSecretJson) {
+        throw new Error("Demo not configured. Run: yarn workspace web setup:demo  then restart next dev");
+      }
+      const demoUser = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(userSecretJson)));
+      const ghostMM  = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(mmSecretJson)));
+      const tokenIn  = new PublicKey(tokenInAddr);
 
-      l(`Wallet: ${payer.publicKey.toBase58().slice(0, 16)}…`);
-      const balance = await connection.getBalance(payer.publicKey);
-      l(`Connected to Solana devnet — ${(balance / LAMPORTS_PER_SOL).toFixed(2)} SOL available`, "success");
+      l(`Demo User: ${demoUser.publicKey.toBase58().slice(0, 16)}…`);
+      l(`Ghost MM:  ${ghostMM.publicKey.toBase58().slice(0, 16)}…`);
+      const userSol = await connection.getBalance(demoUser.publicKey);
+      l(`Connected to Solana devnet — ${(userSol / LAMPORTS_PER_SOL).toFixed(3)} SOL available`, "success");
+      if (userSol < 0.1 * LAMPORTS_PER_SOL) throw new Error("Demo User SOL too low. Run: yarn workspace web setup:demo");
 
       // ── Phase 1: Commit via x402 relay ────────────────────────────────────
       setPhase("commit");
       l("Phase 1: Sealing your order");
-      l("Setting up test tokens on Solana devnet…");
-      const tokenIn  = await createMint(connection, payer, payer.publicKey, null, 6);
-      const tokenOut = await createMint(connection, payer, payer.publicKey, null, 6);
-      l(`Token pair created on devnet`, "tx");
 
-      const [pool] = poolPDA(tokenIn, tokenOut);
+      // tokenIn: PERSISTENT — Demo User ATA pre-funded by setup-demo.ts.
+      // No mintTo in the hot path; just read the existing balance.
+      const NEED = BigInt(100_000_000);
+      const userAtaInfo = await getOrCreateAssociatedTokenAccount(
+        connection, demoUser, tokenIn, demoUser.publicKey,
+        false, "confirmed", { preflightCommitment: "confirmed" },
+      );
+      const userAta    = userAtaInfo.address;
+      const userAtaBal = (await getAccount(connection, userAta, "confirmed")).amount;
+      if (userAtaBal < NEED) throw new Error(`Demo User tokenIn ATA underfunded (${userAtaBal} raw). Re-run: setup:demo`);
+      l(`tokenIn ATA: ${userAtaBal.toLocaleString()} raw  ✓`, "success");
+
+      // tokenOut: FRESH per run — unique pool PDA prevents CommitWindowClosed on repeat runs.
+      const tokenOut = await createMint(connection, demoUser, demoUser.publicKey, null, 6, undefined, { preflightCommitment: "confirmed" });
+      l(`tokenIn:  ${tokenIn.toBase58().slice(0,16)}…  (persistent)`, "tx");
+      l(`tokenOut: ${tokenOut.toBase58().slice(0,16)}…  (fresh)`, "tx");
+
+      const [pool]  = poolPDA(tokenIn, tokenOut);
       const [vault] = vaultPDA(pool, tokenIn);
+      l(`pool: ${pool.toBase58().slice(0,16)}…  vault: ${vault.toBase58().slice(0,16)}…`, "tx");
 
-      const userAta = await createAccount(connection, payer, tokenIn, payer.publicKey);
-      await mintTo(connection, payer, tokenIn, userAta, payer, BigInt(10_000_000_000));
-      l("Your 10,000 USDC locked in the auction vault", "success");
-
+      // AnchorProvider uses demoUser wallet (for clearBatch / settle .rpc() calls)
       const wallet = {
-        publicKey: payer.publicKey,
-        signTransaction: async (tx: any) => { tx.partialSign(payer); return tx; },
-        signAllTransactions: async (txs: any[]) => { txs.forEach(t => t.partialSign(payer)); return txs; },
+        publicKey: demoUser.publicKey,
+        signTransaction: async (tx: any) => { tx.partialSign(demoUser); return tx; },
+        signAllTransactions: async (txs: any[]) => { txs.forEach(t => t.partialSign(demoUser)); return txs; },
       };
-      const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
+      const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed", preflightCommitment: "confirmed" });
       const program  = new Program(IDL as any, provider);
-
-      l("Creating batch auction pool…");
       const prog = program as any;
       const COMMIT_SLOTS = 20;  // ~8s on devnet
       const REVEAL_SLOTS = 15;  // ~6s on devnet
-      const initTx = await prog.methods
+
+      // tokenOut is fresh each run → always create a new pool PDA.
+      l("Creating batch auction pool (~0.051 SOL rent this run)…");
+      const initPoolTx = await prog.methods
         .initializePool(new BN(COMMIT_SLOTS), new BN(REVEAL_SLOTS))
         .accounts({
-          authority: payer.publicKey, pool,
+          authority: demoUser.publicKey, pool,
           tokenInMint: tokenIn, tokenOutMint: tokenOut,
           systemProgram: SystemProgram.programId,
-        }).rpc();
-      l(`Batch auction pool live on devnet`, "tx");
+        }).transaction();
+      const initBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
+      initPoolTx.recentBlockhash = initBlockhash;
+      initPoolTx.feePayer = demoUser.publicKey;
+      initPoolTx.sign(demoUser);
+      const initTx = await connection.sendRawTransaction(initPoolTx.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+      const initResult = await connection.confirmTransaction(initTx, "confirmed");
+      if (initResult.value.err) throw new Error(`initializePool failed: ${JSON.stringify(initResult.value.err)}`);
+      l("Pool created on devnet ✓", "tx");
       setTxSig(initTx);
 
       // Build CommitIntent tx
+      // PRICE UNITS: clearing_price is stored and used as a natural integer
+      // (e.g. 99 = "99 tokenIn per tokenOut").  Do NOT scale by 1e6.
+      // For vault balance to cancel exactly at settle:
+      //   user amount = mmAmount * mmLimitPrice  (tokenIn committed by buyer)
+      //   MM amount   = mmAmount                 (tokenOut committed by seller)
+      // Then: settle_buy  = amount / clearing_price = mmAmount ✓
+      //        settle_sell = mmAmount * clearing_price = amount ✓
       const { randomBytes, createHash } = await import("crypto");
-      const salt       = randomBytes(16);
-      const amount     = new BN(100_000_000);
-      const limitPrice = new BN(102_000_000);
+      const salt         = randomBytes(16);
+      const MM_AMOUNT    = 100_000_000;   // 100 tokenOut at 6 dp
+      const MM_LP_NAT    = 99;            // 99 tokenIn/tokenOut (natural, no 6dp)
+      const USER_LP_NAT  = 102;           // 102 tokenIn/tokenOut (natural, no 6dp)
+      const amount     = new BN(MM_AMOUNT * MM_LP_NAT);  // 9_900_000_000
+      const limitPrice = new BN(USER_LP_NAT);            // 102
 
       const h = createHash("sha256");
       h.update(tokenIn.toBuffer());
@@ -194,7 +274,7 @@ export default function Demo() {
       const commitTxObj = await prog.methods
         .commitIntent(commitHash, amount, true)
         .accounts({
-          payer: payer.publicKey, pool,
+          payer: demoUser.publicKey, pool,
           tokenInMint: tokenIn, tokenOutMint: tokenOut,
           payerTokenAccount: userAta, mint: tokenIn, vault,
           tokenProgram: TOKEN_PROGRAM_ID,
@@ -202,8 +282,8 @@ export default function Demo() {
         }).transaction();
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       commitTxObj.recentBlockhash = blockhash;
-      commitTxObj.feePayer = payer.publicKey;
-      commitTxObj.sign(payer);
+      commitTxObj.feePayer = demoUser.publicKey;
+      commitTxObj.sign(demoUser);
       const txBase64     = commitTxObj.serialize().toString("base64");
       const commitHashHex = Buffer.from(commitHash).toString("hex");
 
@@ -214,7 +294,7 @@ export default function Demo() {
       const first = await fetch("/api/relay/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commitHash: commitHashHex, payer: payer.publicKey.toBase58(), txBase64 }),
+        body: JSON.stringify({ commitHash: commitHashHex, payer: demoUser.publicKey.toBase58(), txBase64 }),
       }).catch(() => { throw new Error("Relay unreachable — is it running on port 7402?"); });
 
       const firstBody = await first.json().catch(() => ({}));
@@ -234,10 +314,10 @@ export default function Demo() {
         network: envelope.network, resource: "/commit", nonce: envelope.nonce,
       });
       const msgBytes = new TextEncoder().encode(msgStr);
-      const sigBytes = nacl.sign.detached(msgBytes, payer.secretKey);
+      const sigBytes = nacl.sign.detached(msgBytes, demoUser.secretKey);
       const paymentSig = btoa(JSON.stringify({
-        from:      payer.publicKey.toBase58(),
-        pubkey:    payer.publicKey.toBase58(),
+        from:      demoUser.publicKey.toBase58(),
+        pubkey:    demoUser.publicKey.toBase58(),
         signature: bs58.encode(sigBytes),
         amount:    envelope.maxAmountRequired,
         asset:     envelope.asset,
@@ -250,7 +330,7 @@ export default function Demo() {
       const second = await fetch("/api/relay/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json", "payment-signature": paymentSig },
-        body: JSON.stringify({ commitHash: commitHashHex, payer: payer.publicKey.toBase58(), txBase64 }),
+        body: JSON.stringify({ commitHash: commitHashHex, payer: demoUser.publicKey.toBase58(), txBase64 }),
       });
 
       if (!second.ok) {
@@ -268,8 +348,8 @@ export default function Demo() {
       // ── Market-maker: seal the opposing sell order ─────────────────────────
       // So clearBatch finds a cross and actually settles at p*
       const mmSalt       = randomBytes(16);
-      const mmAmount     = new BN(100_000_000);       // 100 tokenOut (SOL side)
-      const mmLimitPrice = new BN(99_000_000);        // willing to sell at ≥ 99 USDC/SOL
+      const mmAmount     = new BN(MM_AMOUNT);         // 100 tokenOut (SOL side)
+      const mmLimitPrice = new BN(MM_LP_NAT);         // willing to sell at ≥ 99 tokenIn/tokenOut
 
       const mmH = createHash("sha256");
       mmH.update(tokenIn.toBuffer());
@@ -280,17 +360,35 @@ export default function Demo() {
       const mmCommitHash = Array.from(mmH.digest());
 
       const [vaultOut] = vaultPDA(pool, tokenOut);
-      const userAtaOut = await createAccount(connection, payer, tokenOut, payer.publicKey);
-      await mintTo(connection, payer, tokenOut, userAtaOut, payer, BigInt(1_000_000_000));
 
-      await prog.methods
+      // Ghost MM tokenOut ATA — fresh for this tokenOut mint; mint before commit.
+      const userAtaOutInfo = await getOrCreateAssociatedTokenAccount(
+        connection, demoUser, tokenOut, ghostMM.publicKey,
+        false, "confirmed", { preflightCommitment: "confirmed" },
+      );
+      const userAtaOut = userAtaOutInfo.address;
+      const mmMintSig = await mintTo(connection, demoUser, tokenOut, userAtaOut, demoUser, BigInt(MM_AMOUNT + 1_000), [], { preflightCommitment: "confirmed" });
+      await connection.confirmTransaction(mmMintSig, "confirmed");
+      l(`Ghost MM tokenOut ATA: minted ${(MM_AMOUNT + 1_000).toLocaleString()} raw ✓`, "success");
+      l("MM commit: submitting…");
+
+      // Build the MM commit tx manually with preflightCommitment:"confirmed"
+      // so simulation sees the same slot mintTo was confirmed at.
+      const mmCommitTx = await prog.methods
         .commitIntent(mmCommitHash, mmAmount, false)
         .accounts({
-          payer: payer.publicKey, pool,
+          payer: ghostMM.publicKey, pool,
           tokenInMint: tokenIn, tokenOutMint: tokenOut,
           payerTokenAccount: userAtaOut, mint: tokenOut, vault: vaultOut,
           tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId,
-        }).rpc();
+        }).transaction();
+      const mmBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
+      mmCommitTx.recentBlockhash = mmBlockhash;
+      mmCommitTx.feePayer = ghostMM.publicKey;
+      mmCommitTx.sign(ghostMM);
+      const mmCommitSig = await connection.sendRawTransaction(mmCommitTx.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+      const mmCommitResult = await connection.confirmTransaction(mmCommitSig, "confirmed");
+      if (mmCommitResult.value.err) throw new Error(`MM commit failed on-chain: ${JSON.stringify(mmCommitResult.value.err)}`);
       l("Market-maker sealed sell side — batch can now cross", "info");
 
       // ── Phase 2: Reveal ────────────────────────────────────────────────────
@@ -309,19 +407,29 @@ export default function Demo() {
       setSlotInfo(null);
 
       l("All orders can now reveal — revealing yours…");
-      const revealTx = await prog.methods
+      const revealTxObj = await prog.methods
         .revealIntent(tokenIn, tokenOut, amount, limitPrice, Array.from(salt))
-        .accounts({ payer: payer.publicKey, pool, tokenInMint: tokenIn, tokenOutMint: tokenOut })
-        .signers([payer]).rpc();
+        .accounts({ payer: demoUser.publicKey, pool, tokenInMint: tokenIn, tokenOutMint: tokenOut })
+        .transaction();
+      const revealBh = (await connection.getLatestBlockhash("confirmed")).blockhash;
+      revealTxObj.recentBlockhash = revealBh; revealTxObj.feePayer = demoUser.publicKey; revealTxObj.sign(demoUser);
+      const revealTx = await connection.sendRawTransaction(revealTxObj.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+      const revealRes = await connection.confirmTransaction(revealTx, "confirmed");
+      if (revealRes.value.err) throw new Error(`revealIntent failed: ${JSON.stringify(revealRes.value.err)}`);
       l("Your order revealed and verified on-chain ✓", "success");
       l(`devnet: ${revealTx.slice(0, 20)}…`, "tx");
       setTxSig(revealTx);
 
       // Reveal market-maker sell order
-      const mmRevealTx = await prog.methods
+      const mmRevealTxObj = await prog.methods
         .revealIntent(tokenIn, tokenOut, mmAmount, mmLimitPrice, Array.from(mmSalt))
-        .accounts({ payer: payer.publicKey, pool, tokenInMint: tokenIn, tokenOutMint: tokenOut })
-        .signers([payer]).rpc();
+        .accounts({ payer: ghostMM.publicKey, pool, tokenInMint: tokenIn, tokenOutMint: tokenOut })
+        .transaction();
+      const mmRevBh = (await connection.getLatestBlockhash("confirmed")).blockhash;
+      mmRevealTxObj.recentBlockhash = mmRevBh; mmRevealTxObj.feePayer = ghostMM.publicKey; mmRevealTxObj.sign(ghostMM);
+      const mmRevealTx = await connection.sendRawTransaction(mmRevealTxObj.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+      const mmRevRes = await connection.confirmTransaction(mmRevealTx, "confirmed");
+      if (mmRevRes.value.err) throw new Error(`MM revealIntent failed: ${JSON.stringify(mmRevRes.value.err)}`);
       l("Market-maker order revealed — both sides ready to clear", "info");
       l(`devnet: ${mmRevealTx.slice(0, 20)}…`, "tx");
 
@@ -342,18 +450,19 @@ export default function Demo() {
 
       try {
         const clearTx = await prog.methods
-          .clearBatch().accounts({ pool, tokenInMint: tokenIn, tokenOutMint: tokenOut, caller: payer.publicKey }).rpc();
+          .clearBatch().accounts({ pool, tokenInMint: tokenIn, tokenOutMint: tokenOut, caller: demoUser.publicKey }).rpc();
         l("Batch settled at fair market price ✓", "success");
         l(`devnet: ${clearTx.slice(0, 20)}…`, "tx");
         setTxSig(clearTx);
 
         // Capture real order-book data for the live batch visualizer.
-        // With equal quantities the uniform price is the midpoint of the bid/ask spread.
-        const userBuyPrice  = limitPrice.toNumber()   / 1_000_000; // 102
-        const mmSellPrice   = mmLimitPrice.toNumber()  / 1_000_000; // 99
-        const clearingPrice = parseFloat(((userBuyPrice + mmSellPrice) / 2).toFixed(2)); // 100.5
+        // Prices are natural integers (no 6dp scaling).
+        // The clearBatch algorithm tie-breaks at the lower price = mmLimitPrice.
+        const userBuyPrice  = limitPrice.toNumber();    // 102
+        const mmSellPrice   = mmLimitPrice.toNumber();  // 99
+        const clearingPrice = mmSellPrice;              // 99 (lower tie-break)
         setRealBatchData({ userBuyPrice, mmSellPrice, clearingPrice });
-        l(`Clearing price p* = ${clearingPrice} USDC/SOL (live)`, "success");
+        l(`Clearing price p* = ${clearingPrice} tokenIn/tokenOut (live)`, "success");
 
         // ── Phase 4: Settle — transfer tokens from vaults to payers ──────────
         l("Phase 4: Settling tokens to payers…");
@@ -369,7 +478,7 @@ export default function Demo() {
             tokenInMint:   tokenIn,
             tokenOutMint:  tokenOut,
             tokenProgram:  TOKEN_PROGRAM_ID,
-            caller: payer.publicKey,
+            caller: demoUser.publicKey,
           })
           .remainingAccounts([
             { pubkey: userAtaOut, isWritable: true, isSigner: false }, // slot 0: buy → get tokenOut
@@ -413,7 +522,21 @@ export default function Demo() {
       <Head>
         <title>Lattice — Stop Bots from Stealing Your Trades</title>
         <meta name="description" content="See exactly how bots steal from every DEX trade — then watch Lattice block them with cryptography." />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        {/* OG */}
+        <meta property="og:type"        content="website" />
+        <meta property="og:title"       content="Lattice — Stop Bots from Stealing Your Trades" />
+        <meta property="og:description" content="Live interactive demo: run a sandwich attack, then submit a protected order through Lattice on Solana devnet." />
+        <meta property="og:image"       content={`/api/og?title=Stop+Bots+from+Stealing+Your+Trades&sub=Live+interactive+demo+on+Solana+devnet`} />
+        <meta property="og:image:width"  content="1200" />
+        <meta property="og:image:height" content="630" />
+
+        {/* Twitter */}
+        <meta name="twitter:card"        content="summary_large_image" />
+        <meta name="twitter:title"       content="Lattice — Stop Bots from Stealing Your Trades" />
+        <meta name="twitter:description" content="Live interactive demo: run a sandwich attack, then submit a protected order through Lattice on Solana devnet." />
+        <meta name="twitter:image"       content={`/api/og?title=Stop+Bots+from+Stealing+Your+Trades&sub=Live+interactive+demo+on+Solana+devnet`} />
       </Head>
 
       <div className="min-h-screen bg-[#05050f] text-[#f1f0f7]">
@@ -518,7 +641,7 @@ export default function Demo() {
               <div className="text-[10px] font-mono text-[#ff3b5c66] uppercase tracking-wider">Bot steals</div>
               <div className="text-xl font-mono font-bold text-[#ff3b5c]">$99.74</div>
             </div>
-            <div className="text-[#2a2a42] font-mono font-bold">vs</div>
+            <div className="text-[#a5a5a5] font-mono font-bold">vs</div>
             <div className="rounded-xl px-4 py-2.5 bg-[#00ff8808] border border-[#00ff8830] text-center">
               <div className="text-[10px] font-mono text-[#00ff8866] uppercase tracking-wider">Lattice bots earn</div>
               <div className="text-xl font-mono font-bold text-[#00ff88]">$0.00</div>
@@ -567,6 +690,8 @@ export default function Demo() {
             slotInfo={slotInfo}
             onSubmit={runLattice}
             realBatchData={realBatchData}
+            preflightState={preflightState}
+            preflightMsg={preflightMsg}
           />
         </div>
 

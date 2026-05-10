@@ -235,12 +235,12 @@ export function BatchVisualizer({ phase, realBatchData }: Props) {
       </div>
 
       {/* Price axis */}
-      <div className="flex justify-between mt-2 pl-16 text-[9px] font-mono text-[#2a2a42]">
+      <div className="flex justify-between mt-2 pl-16 text-[9px] font-mono text-[#a5a5a5]">
         <span>{minP.toFixed(0)}</span>
         <span>{(minP + range / 2).toFixed(1)}</span>
         <span>{maxP.toFixed(0)}</span>
       </div>
-      <div className="pl-16 text-[9px] font-mono text-[#2a2a42] text-center -mt-0.5">
+      <div className="pl-16 text-[9px] font-mono text-[#a5a5a5] text-center -mt-0.5">
         limit price (USDC/SOL)
       </div>
     </div>

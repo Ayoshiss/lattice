@@ -185,12 +185,18 @@ app.post("/commit", async (req: Request, res: Response) => {
 
   // ── Direct RPC fallback (no Jito payer configured or Jito disabled) ─────────
   try {
-    const tx    = Transaction.from(txBytes);
+    const tx = Transaction.from(txBytes);
+    // preflightCommitment:"confirmed" ensures simulation runs against the same
+    // stable slot that confirmTransaction validates, preventing stale-state
+    // false-negatives on devnet's load-balanced RPC.
     const txSig = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight:       false,
+      skipPreflight: false,
       preflightCommitment: "confirmed",
     });
-    await connection.confirmTransaction(txSig, "confirmed");
+    const result = await connection.confirmTransaction(txSig, "confirmed");
+    if (result.value.err) {
+      throw new Error(`On-chain execution failed: ${JSON.stringify(result.value.err)}`);
+    }
 
     console.log(`[relay] ✓ devnet tx (direct): ${txSig}`);
 

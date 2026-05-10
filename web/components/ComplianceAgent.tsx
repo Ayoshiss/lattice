@@ -19,7 +19,7 @@ export function ComplianceAgent() {
   const [input, setInput]         = useState("");
   const [loading, setLoading]     = useState(false);
   const [blink, setBlink]         = useState(true);
-  const bottomRef                 = useRef<HTMLDivElement>(null);
+  const chatRef                   = useRef<HTMLDivElement>(null);
   const abortRef                  = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -27,8 +27,14 @@ export function ComplianceAgent() {
     return () => clearInterval(t);
   }, []);
 
+  // Scroll within the chat container only — never touch the page scroll position.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatRef.current;
+    if (!el) return;
+    // Only auto-scroll when already near the bottom (within 80px), so manual
+    // scroll-up to re-read isn't interrupted during streaming.
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const ask = useCallback(async (question: string) => {
@@ -142,7 +148,7 @@ export function ComplianceAgent() {
       </div>
 
       {/* Chat window */}
-      <div className="h-72 overflow-y-auto px-5 py-4 space-y-4">
+      <div ref={chatRef} className="h-72 overflow-y-auto px-5 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="space-y-2">
             <div className="text-[11px] font-mono text-[#3a3a5a] mb-3">
@@ -176,7 +182,6 @@ export function ComplianceAgent() {
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -204,7 +209,7 @@ export function ComplianceAgent() {
       </div>
 
       <div className="px-5 pb-3 text-[10px] font-mono text-[#2a2a4a]">
-        This is not legal advice. Obtain qualified counsel before any mainnet deployment.
+        This is not legal advice.
       </div>
     </div>
   );

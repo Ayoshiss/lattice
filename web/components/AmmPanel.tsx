@@ -67,7 +67,7 @@ export function AmmPanel({ result, logs, running, onRun }: Props) {
         <div className="text-[10px] font-mono text-[#3a3a5a] uppercase tracking-[0.18em] mb-3">Your trade</div>
         <div className="flex items-center gap-3 font-mono">
           <span className="text-[#f1f0f7] font-bold text-lg">10,000 USDC</span>
-          <span className="text-[#2a2a42]">→</span>
+          <span className="text-[#a5a5a5]">→</span>
           <span className="text-[#f1f0f7] font-bold text-lg">SOL</span>
           <span className="ml-auto text-[10px] text-[#3a3a5a]">fair ≈ 100 USDC/SOL</span>
         </div>
@@ -87,7 +87,7 @@ export function AmmPanel({ result, logs, running, onRun }: Props) {
           }`}>
             {/* Step number */}
             <span className={`text-[9px] font-mono font-bold shrink-0 mt-0.5 ${
-              s.highlight ? "text-[#ff3b5c]" : s.attack ? "text-[#ff3b5c66]" : "text-[#2a2a42]"
+              s.highlight ? "text-[#ff3b5c]" : s.attack ? "text-[#ff3b5c66]" : "text-[#a5a5a5]"
             }`}>{s.n}</span>
 
             <div className="flex-1 min-w-0">

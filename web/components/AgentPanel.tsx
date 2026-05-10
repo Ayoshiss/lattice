@@ -293,7 +293,7 @@ export function AgentPanel() {
           placeholder={`e.g. "buy $2000 of SOL, I'm worried about market impact"`}
           rows={2}
           className="w-full bg-[#080812] border border-[#1a1a2e] rounded-lg px-3 py-2.5
-                     text-[13px] font-mono text-[#f1f0f7] placeholder-[#2a2a42] resize-none
+                     text-[13px] font-mono text-[#f1f0f7] placeholder-[#a5a5a5] resize-none
                      focus:outline-none focus:border-[#00d4ff55] disabled:opacity-50
                      leading-5"
           onKeyDown={e => {
@@ -498,7 +498,7 @@ export function AgentPanel() {
              "▶  Run AI Agent"}
           </button>
         )}
-        <p className="text-center text-[10px] font-mono text-[#2a2a42] mt-2">
+        <p className="text-center text-[10px] font-mono text-[#a5a5a5] mt-2">
           Press Enter or click ▶ · each fragment executes live on Solana devnet
         </p>
       </div>

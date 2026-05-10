@@ -62,7 +62,7 @@ export function MevCalculator() {
                   className={`text-[10px] font-mono px-2 py-1 rounded-lg border transition-colors ${
                     monthly === v
                       ? "border-[#00d4ff55] text-[#00d4ff] bg-[#00d4ff11]"
-                      : "border-[#1a1a2e] text-[#3a3a5a] hover:border-[#2a2a42]"
+                      : "border-[#1a1a2e] text-[#3a3a5a] hover:border-[#a5a5a5]"
                   }`}
                 >
                   {fmt(v)}
@@ -72,7 +72,7 @@ export function MevCalculator() {
           </div>
 
           {/* Arrow */}
-          <div className="hidden sm:block text-[#2a2a42] font-mono text-xl">→</div>
+          <div className="hidden sm:block text-[#a5a5a5] font-mono text-xl">→</div>
 
           {/* Output */}
           <div className="flex-1 w-full grid grid-cols-2 gap-3">

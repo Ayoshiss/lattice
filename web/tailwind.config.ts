@@ -12,7 +12,7 @@ const config: Config = {
         surface: "#0c0c1a",
         raised:  "#111124",
         border:  "#1a1a2e",
-        "border-bright": "#2a2a42",
+        "border-bright": "#a5a5a5",
         gold:    { DEFAULT: "#f0b429", dim: "rgba(240,180,41,0.12)", glow: "rgba(240,180,41,0.35)" },
         violet:  { DEFAULT: "#a78bfa", dim: "rgba(167,139,250,0.12)" },
         cyan:    { DEFAULT: "#00d4ff", dim: "#00d4ff20" },
