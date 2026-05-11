@@ -100,7 +100,7 @@ function DefenseDiagram() {
         { label: "Order sealed as SHA-256 hash", sub: "CRYPTOGRAPHICALLY HIDDEN", color: "#f0b429", seal: true },
         { label: "Commit window closes",          sub: "BOTS SEE NOTHING",         color: "#a78bfa", shield: true },
         { label: "All orders reveal at once",     sub: "SIMULTANEOUS REVEAL",      color: "#00d4ff", dot: "#00d4ff" },
-        { label: "p* = 100.5 USDC/SOL",           sub: "UNIFORM CLEARING PRICE",   color: "#00ff88", dot: "#00ff88" },
+        { label: "p* = 99 USDC/SOL",              sub: "UNIFORM CLEARING PRICE",   color: "#00ff88", dot: "#00ff88" },
       ].map((row, i) => (
         <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${
           row.seal   ? "border-[#f0b42933] bg-[#f0b42908]" :
@@ -201,6 +201,10 @@ export default function Home() {
                className="hidden md:block text-[11px] font-mono text-[#a5a5a5] hover:text-[#00d4ff] transition-colors">
               AW8zeS7…F6iV ↗
             </a>
+            <Link href="/compliance"
+                  className="hidden md:block text-[11px] font-mono text-[#a5a5a5] hover:text-[#00d4ff] transition-colors">
+              Compliance
+            </Link>
             <Link href="/demo" className="btn-shimmer inline-flex items-center gap-2 px-4 py-2 rounded-lg
                          border border-[#00ff8840] bg-[#00ff8810] text-[#00ff88]
                          text-[12px] font-mono font-semibold tracking-wider
@@ -217,7 +221,7 @@ export default function Home() {
                           text-[10px] font-mono uppercase tracking-[0.2em]
                           transition-all duration-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
             <Diamond size={11} gold />
-            Frontier Hackathon 2026 &nbsp;·&nbsp; Live on Solana Devnet
+            Live on Solana Devnet
           </div>
 
           <h1 className={`text-5xl sm:text-6xl md:text-7xl font-black tracking-[-0.03em] leading-[1.02] mb-6
@@ -389,6 +393,127 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── x402 Origin Story ───────────────────────────────────── */}
+        <section className="relative overflow-hidden border-y border-[#1a1a2e] py-24 px-6">
+          {/* Ambient glow behind the 402 */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
+               style={{ background: "radial-gradient(ellipse, #00d4ff06 0%, transparent 70%)" }} />
+
+          <div className="max-w-6xl mx-auto">
+            {/* Top label */}
+            <div className="flex items-center justify-center gap-3 mb-16">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#00d4ff22]" />
+              <span className="text-[10px] font-mono text-[#00d4ff] uppercase tracking-[0.3em] px-3">
+                HTTP 402 · 1999 → 2026
+              </span>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#00d4ff22]" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+
+              {/* Left — narrative */}
+              <div className="space-y-8">
+                {/* The ghost */}
+                <div>
+                  <div className="flex items-center gap-6 mb-4">
+                    <span className="font-mono font-black text-[80px] sm:text-[100px] leading-none tracking-[-0.04em]"
+                          style={{ color: "#00d4ff", textShadow: "0 0 60px #00d4ff33" }}>
+                      402
+                    </span>
+                    <div className="space-y-1.5 border-l border-[#00d4ff22] pl-4">
+                      <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-widest">HTTP Status Code</div>
+                      <div className="text-[14px] font-mono text-[#f1f0f7] font-bold leading-tight">Payment Required</div>
+                      <div className="text-[10px] font-mono text-[#3a3a5a]">Reserved for Future Use · 1999</div>
+                    </div>
+                  </div>
+                  <p className="text-[#6b6b8a] text-sm leading-[1.8]">
+                    In 1999, the architects of the modern web reserved this code for one reason: they knew machines
+                    would eventually need a native way to pay each other. The technology wasn&apos;t ready.
+                    For <span className="text-[#a5a5a5]">27 years</span>, Code 402 sat dormant — a ghost in the machine.
+                  </p>
+                </div>
+
+                {/* The resolution */}
+                <div className="border-l-2 border-[#00ff8833] pl-5">
+                  <div className="text-[10px] font-mono text-[#00ff88] uppercase tracking-widest mb-2">2026 · Resolved</div>
+                  <p className="text-[#a5a5a5] text-sm leading-[1.8]">
+                    Lattice is that future. Our autonomous liquidity agents use the <span className="text-[#00d4ff]">x402 standard</span> to
+                    programmatically pay for MEV-shielding. When an agent encounters a 402, it doesn&apos;t stop —
+                    it negotiates, signs, and pays the relay fee to secure a <span className="text-[#f0b429]">private Jito bundle</span>.
+                  </p>
+                  <p className="text-[#6b6b8a] text-sm leading-[1.8] mt-3">
+                    The internet&apos;s oldest reserved code finally has its purpose.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right — terminal showing the x402 flow */}
+              <div className="rounded-2xl border border-[#00d4ff18] bg-[#05050f] overflow-hidden shadow-[0_0_60px_#00d4ff08]">
+                {/* Terminal bar */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#0f0f1a] bg-[#07070f]">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#ff3b5c44]" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#f0b42944]" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#00ff8844]" />
+                  <span className="ml-3 text-[10px] font-mono text-[#3a3a5a]">agent · x402 relay flow</span>
+                </div>
+                <div className="p-5 space-y-3 text-[11px] font-mono">
+                  {/* Step 1 */}
+                  <div className="space-y-1">
+                    <div className="text-[#3a3a5a]">POST /relay/bundle HTTP/1.1</div>
+                    <div className="text-[#3a3a5a]">Authorization: none</div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#ff3b5c]">
+                    <span className="font-black">←</span>
+                    <span>HTTP/1.1</span>
+                    <span className="font-black text-[#00d4ff]">402</span>
+                    <span>Payment Required</span>
+                  </div>
+                  <div className="pl-4 space-y-0.5 text-[#3a3a5a]">
+                    <div>X-Payment-Scheme: x402/solana</div>
+                    <div>X-Payment-Amount: 5000 lamports</div>
+                    <div>X-Payment-Recipient: relay.lattice.xyz</div>
+                  </div>
+
+                  <div className="border-t border-[#1a1a2e] pt-3 space-y-1 text-[#a5a5a5]">
+                    <div className="text-[#3a3a5a]">// agent parses 402 terms, signs micropayment</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#f0b429]">agent</span>
+                      <span className="text-[#3a3a5a]">→</span>
+                      <span>signTransaction(fee: 5000 lamports)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#f0b429]">agent</span>
+                      <span className="text-[#3a3a5a]">→</span>
+                      <span>POST /relay/bundle</span>
+                    </div>
+                    <div className="pl-4 text-[#3a3a5a]">X-Payment: &lt;signed-receipt&gt;</div>
+                  </div>
+
+                  <div className="border-t border-[#1a1a2e] pt-3 space-y-1">
+                    <div className="flex items-center gap-2 text-[#00ff88]">
+                      <span className="font-black">←</span>
+                      <span>HTTP/1.1</span>
+                      <span className="font-black">200</span>
+                      <span>OK</span>
+                    </div>
+                    <div className="pl-4 space-y-0.5 text-[#00ff8877]">
+                      <div>X-Bundle-Id: jito://9f3a…c2d1</div>
+                      <div>X-MEV-Shield: private · skip mempool</div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#00ff8808] border border-[#00ff8820] px-3 py-2">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="#00ff88" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[#00ff88]">Private Jito bundle secured. MEV structurally impossible.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
         {/* ── Tech proof ──────────────────────────────────────────── */}
         <section className="max-w-5xl mx-auto px-6 py-20">
           <div className="text-center mb-14">
@@ -423,7 +548,7 @@ export default function Home() {
               </div>
             </div>
             <div className="rounded-2xl border border-[#1a1a2e] bg-[#0c0c1a] p-6">
-              <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.2em] mb-1">VARA 2026 · NeosLegal Prize</div>
+              <div className="text-[10px] font-mono text-[#a5a5a5] uppercase tracking-[0.2em] mb-1">VARA 2026 · Non-Custodial DeFi</div>
               <div className="text-sm font-bold text-[#f1f0f7] mb-5">Non-custodial DeFi carve-out</div>
               <div className="space-y-3">
                 {[
@@ -480,10 +605,11 @@ export default function Home() {
         <footer className="border-t border-[#1a1a2e] px-6 py-5 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Diamond size={17} gold />
-            <span className="text-[11px] font-mono text-[#a5a5a5]">Lattice · Frontier Hackathon 2026</span>
+            <span className="text-[11px] font-mono text-[#a5a5a5]">Lattice · Live on Solana Devnet</span>
           </div>
           <div className="flex items-center gap-5">
             {[
+              ["/compliance", "Compliance"],
               ["/VARA_compliance.md", "VARA Compliance"],
               ["/api/compliance/disclosure", "Risk Disclosure API"],
               ["https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet", "Onchain ↗"],

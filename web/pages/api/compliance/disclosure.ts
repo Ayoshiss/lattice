@@ -143,7 +143,7 @@ const DISCLOSURE: ComplianceDisclosure = {
 
   contactForCompliance: "compliance@lattice.xyz",
   legalDisclaimer:
-    "This disclosure is prepared for the Frontier Hackathon 2026 NeosLegal VARA Compliance Prize and for regulatory filing purposes. It does not constitute legal advice. Lattice is experimental software deployed on Solana devnet. Obtain qualified legal counsel (recommended: NeosLegal, UAE) before any mainnet deployment or marketing to retail users.",
+    "This disclosure is for informational and regulatory review purposes. It does not constitute legal advice. Lattice is experimental software deployed on Solana devnet. Obtain qualified legal counsel before any mainnet deployment or marketing to retail users.",
 };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {

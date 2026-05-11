@@ -67,7 +67,7 @@ export default function handler(req: NextRequest) {
               border: "1px solid #f0b42944", borderRadius: "20px",
               padding: "4px 14px", letterSpacing: "0.15em", textTransform: "uppercase",
             }}>
-              Frontier Hackathon 2026
+              Live on Solana Devnet
             </div>
           </div>
 

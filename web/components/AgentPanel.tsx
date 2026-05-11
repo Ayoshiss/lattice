@@ -435,19 +435,17 @@ export function AgentPanel() {
 
         {/* Log stream */}
         <div ref={logRef} className="max-h-24 overflow-y-auto font-mono text-[11px] space-y-0.5 pr-1">
-          {logs.map((e, i) => (
-            <div key={i} className={`flex gap-2 leading-5 ${
-              e.level === "warn"    ? "text-yellow-400" :
-              e.level === "success" ? "text-[#00ff88]"  :
-              e.level === "error"   ? "text-[#ff3b5c]"  :
-                                      "text-[#3a3a5a]"
-            }`}>
-              <span className="shrink-0">
-                {e.level === "warn" ? "!" : e.level === "success" ? "✓" : e.level === "error" ? "✗" : "·"}
-              </span>
-              <span className="break-all">{e.text}</span>
-            </div>
-          ))}
+          {logs.map((e, i) => {
+            const col = e.level === "warn" ? "#facc15" : e.level === "success" ? "#00ff88" : e.level === "error" ? "#ff3b5c" : "#3a3a5a";
+            return (
+              <div key={i} className="flex gap-2 leading-5" style={{ color: col }}>
+                <span className="shrink-0">
+                  {e.level === "warn" ? "!" : e.level === "success" ? "✓" : e.level === "error" ? "✗" : "·"}
+                </span>
+                <span className="break-all">{e.text}</span>
+              </div>
+            );
+          })}
           {logs.length === 0 && isIdle && (
             <div className="italic text-[#2a2a4a]">Waiting to run…</div>
           )}

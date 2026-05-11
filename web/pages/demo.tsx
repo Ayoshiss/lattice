@@ -51,6 +51,7 @@ const PREFLIGHT_MIN_RAW = BigInt(100_000_000); // 100 tokens at 6 dp
 export default function Demo() {
   const result = runSimulation(DEFAULT_PARAMS);
 
+
   const [ammLogs,     setAmmLogs]     = useState<LogEntry[]>([]);
   const [latticeLogs, setLatticeLogs] = useState<LogEntry[]>([]);
   const [ammRunning,     setAmmRunning]     = useState(false);
@@ -187,9 +188,20 @@ export default function Demo() {
 
       l(`Demo User: ${demoUser.publicKey.toBase58().slice(0, 16)}…`);
       l(`Ghost MM:  ${ghostMM.publicKey.toBase58().slice(0, 16)}…`);
-      const userSol = await connection.getBalance(demoUser.publicKey);
+      let userSol = await connection.getBalance(demoUser.publicKey);
       l(`Connected to Solana devnet — ${(userSol / LAMPORTS_PER_SOL).toFixed(3)} SOL available`, "success");
-      if (userSol < 0.1 * LAMPORTS_PER_SOL) throw new Error("Demo User SOL too low. Run: yarn workspace web setup:demo");
+
+      if (userSol < 0.1 * LAMPORTS_PER_SOL) {
+        l(`SOL low — requesting devnet airdrop…`, "warn");
+        try {
+          const airdropSig = await connection.requestAirdrop(demoUser.publicKey, 1 * LAMPORTS_PER_SOL);
+          await connection.confirmTransaction(airdropSig, "confirmed");
+          userSol = await connection.getBalance(demoUser.publicKey);
+          l(`Airdrop received — ${(userSol / LAMPORTS_PER_SOL).toFixed(3)} SOL  ✓`, "success");
+        } catch {
+          throw new Error(`SOL too low (${(userSol / LAMPORTS_PER_SOL).toFixed(3)}) and devnet airdrop rate-limited. Run: yarn workspace web setup:demo`);
+        }
+      }
 
       // ── Phase 1: Commit via x402 relay ────────────────────────────────────
       setPhase("commit");
@@ -290,7 +302,7 @@ export default function Demo() {
       l(`Your order hash: ${commitHashHex.slice(0, 16)}… (order details invisible)`);
 
       // ── x402 dance ────────────────────────────────────────────────────────
-      l("Sending sealed order to private relay…");
+      l("Sending sealed order to private relay…  [x402 MEV-shield]");
       const first = await fetch("/api/relay/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,7 +316,7 @@ export default function Demo() {
         ?? first.headers.get("payment-required")
         ?? "";
       if (!envelopeB64) throw new Error(`Relay returned ${first.status} but no payment envelope — check relay logs`);
-      l(`Relay: pay 0.001 USDC to submit (x402 micropayment)`, "warn");
+      l(`← HTTP 402 Payment Required  (x402 protocol)`, "warn");
 
       const envelope = JSON.parse(atob(envelopeB64));
 
@@ -325,7 +337,7 @@ export default function Demo() {
         nonce:     envelope.nonce,
       }));
 
-      l("Micropayment signed — resubmitting with proof of payment…");
+      l("Agent signs micropayment · resubmitting with x402 payment proof…");
 
       const second = await fetch("/api/relay/commit", {
         method: "POST",
@@ -339,8 +351,8 @@ export default function Demo() {
       }
 
       const relayResult = await second.json();
-      l(`Relay accepted — 0.001 USDC fee paid`, "success");
-      l(`Sealed order is now on-chain. Bots see only a hash.`, "success");
+      l(`← HTTP 200 OK · private Jito bundle secured`, "success");
+      l(`Sealed order on-chain. Bots see only a hash.`, "success");
       l(`devnet: ${relayResult.txSig?.slice(0, 20)}…`, "tx");
       lastTxSig = relayResult.txSig ?? "";
       setTxSig(relayResult.txSig);
@@ -515,7 +527,9 @@ export default function Demo() {
   }, []);
 
   const latticeDone = phase === "done";
-  const bothDone = ammDone && latticeDone;
+  // Show verdict card as soon as Lattice completes — comparison numbers come from
+  // the simulation, so AMM doesn't need to run first.
+  const bothDone = latticeDone;
 
   return (
     <>
@@ -573,6 +587,10 @@ export default function Demo() {
               relay {relayStatus === "checking" ? "…" : relayStatus}
             </div>
 
+<Link href="/compliance"
+                  className="hidden md:block text-[11px] font-mono text-[#a5a5a5] hover:text-[#00d4ff] transition-colors">
+              Compliance
+            </Link>
             <a
               href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
               target="_blank"
@@ -625,15 +643,22 @@ export default function Demo() {
               <rect x="4" y="4" width="20" height="20" rx="3" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="2" opacity="0.7" />
               <rect x="11" y="11" width="6" height="6" rx="1" transform="rotate(45 14 14)" fill="#f0b429" />
             </svg>
-            Frontier Hackathon 2026
+            Live on Solana Devnet
           </div>
           <h1 className="text-3xl sm:text-4xl font-black text-[#f1f0f7] mb-3 tracking-[-0.02em]">
             Live interactive demo
           </h1>
-          <p className="text-[#6b6b8a] text-sm max-w-xl mx-auto leading-6 mb-2">
+          <p className="text-[#6b6b8a] text-sm max-w-xl mx-auto leading-6 mb-3">
             Run a real sandwich attack simulation, then submit a protected order through Lattice
             on Solana devnet. Every transaction is verifiable on-chain.
           </p>
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1
+                          border border-[#00d4ff22] bg-[#00d4ff08] text-[#00d4ff]
+                          text-[10px] font-mono">
+            <span className="font-black">402</span>
+            <span className="text-[#1a1a2e]">·</span>
+            <span>HTTP 402 → x402 micropayment → private Jito bundle</span>
+          </div>
 
           {/* Quick stats */}
           <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
@@ -660,12 +685,12 @@ export default function Demo() {
               <span className="w-5 h-5 rounded-full bg-[#ff3b5c18] border border-[#ff3b5c44] flex items-center justify-center text-[10px] font-mono font-bold text-[#ff3b5c]">1</span>
               <span className="text-xs font-mono text-[#f1f0f7]">Run the bot attack</span>
             </div>
-            <div className="flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
+            <div className="hidden sm:flex flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-[#00ff8818] border border-[#00ff8844] flex items-center justify-center text-[10px] font-mono font-bold text-[#00ff88]">2</span>
               <span className="text-xs font-mono text-[#f1f0f7]">Submit a protected order</span>
             </div>
-            <div className="flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
+            <div className="hidden sm:flex flex-1 h-px bg-[#1a1a2e] mx-2 min-w-[16px]" />
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-[#a78bfa18] border border-[#a78bfa44] flex items-center justify-center text-[10px] font-mono font-bold text-[#a78bfa]">3</span>
               <span className="text-xs font-mono text-[#f1f0f7]">Watch the AI agent trade</span>
@@ -828,16 +853,21 @@ export default function Demo() {
               <rect x="4" y="4" width="20" height="20" rx="3" transform="rotate(45 14 14)" stroke="#f0b429" strokeWidth="1.5" opacity="0.7" />
               <rect x="11" y="11" width="6" height="6" rx="1" transform="rotate(45 14 14)" fill="#f0b429" />
             </svg>
-            <span>Lattice — Frontier Hackathon 2026</span>
+            <span>Lattice · Live on Solana Devnet</span>
           </div>
-          <a
-            href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#00d4ff] hover:underline hidden sm:block"
-          >
-            Program: AW8zeS7…F6iV ↗
-          </a>
+          <div className="flex items-center gap-4 hidden sm:flex">
+            <Link href="/compliance" className="text-[#a5a5a5] hover:text-[#00d4ff] transition-colors">
+              Compliance
+            </Link>
+            <a
+              href="https://explorer.solana.com/address/AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV?cluster=devnet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00d4ff] hover:underline"
+            >
+              Program: AW8zeS7…F6iV ↗
+            </a>
+          </div>
         </div>
       </div>
     </>
