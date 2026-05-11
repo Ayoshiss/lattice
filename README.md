@@ -1,6 +1,6 @@
 # Lattice — Anti-MEV Batch Auction DEX
 
-> **Frontier Hackathon 2025 · DeFi Infrastructure Track**  
+> **Frontier Hackathon 2026 · DeFi Infrastructure Track**  
 > Commit-reveal batch auctions on Solana. Front-running is mathematically impossible.
 
 ---
