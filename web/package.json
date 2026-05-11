@@ -8,6 +8,9 @@
     "start": "next start",
     "setup:demo": "node --experimental-strip-types scripts/setup-demo.ts"
   },
+  "overrides": {
+    "uuid": "^8.3.2"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
     "@coral-xyz/anchor": "0.30.1",
