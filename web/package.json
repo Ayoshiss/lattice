@@ -9,6 +9,7 @@
     "setup:demo": "node --experimental-strip-types scripts/setup-demo.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@coral-xyz/anchor": "0.30.1",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.23",
