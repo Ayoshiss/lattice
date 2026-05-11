@@ -7,7 +7,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
 
-const DOC_PATH = path.join(process.cwd(), "..", "compliance", "VARA_compliance.md");
+const DOC_PATH = path.join(process.cwd(), "public", "VARA_compliance.md");
 
 const SYSTEM_PROMPT = `You are a regulatory compliance assistant for Lattice, a non-custodial Dual-Flow Batch Auction DEX on Solana.
 
