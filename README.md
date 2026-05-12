@@ -242,4 +242,4 @@ MIT
 
 ---
 
-*Built for the Frontier Hackathon 2025. Program on Solana devnet: `AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV`*
+*Built for the Frontier Hackathon 2026. Program on Solana devnet: `AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB1v8F6iV`*
