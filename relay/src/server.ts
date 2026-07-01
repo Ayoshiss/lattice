@@ -184,37 +184,57 @@ app.post("/commit", async (req: Request, res: Response) => {
   }
 
   // ── Direct RPC fallback (no Jito payer configured or Jito disabled) ─────────
-  try {
-    const tx = Transaction.from(txBytes);
-    // preflightCommitment:"confirmed" ensures simulation runs against the same
-    // stable slot that confirmTransaction validates, preventing stale-state
-    // false-negatives on devnet's load-balanced RPC.
-    const txSig = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: "confirmed",
-    });
-    const result = await connection.confirmTransaction(txSig, "confirmed");
-    if (result.value.err) {
-      throw new Error(`On-chain execution failed: ${JSON.stringify(result.value.err)}`);
+  // devnet's load-balanced RPC can simulate a commit against a backend node that
+  // hasn't yet propagated a freshly-created account (e.g. a just-funded payer ATA),
+  // yielding a transient AccountNotInitialized. Retry briefly so propagation catches
+  // up. The same signed tx is safe to resend — on a sim failure it never landed.
+  const tx = Transaction.from(txBytes);
+  const isTransient = (m: string) =>
+    /AccountNotInitialized|not initialized|could not find|BlockhashNotFound|block height exceeded/i.test(m);
+
+  let txSig: string | undefined;
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      txSig = await connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
+      const result = await connection.confirmTransaction(txSig, "confirmed");
+      if (result.value.err) {
+        throw new Error(`On-chain execution failed: ${JSON.stringify(result.value.err)}`);
+      }
+      lastErr = undefined;
+      break; // landed
+    } catch (err: any) {
+      lastErr = err;
+      if (attempt < 4 && isTransient(err.message ?? "")) {
+        console.warn(`[relay] commit sim transient (attempt ${attempt}/4) — retrying in 1.2s: ${err.message?.slice(0, 80)}`);
+        await new Promise((r) => setTimeout(r, 1200));
+        continue;
+      }
+      break;
     }
-
-    console.log(`[relay] ✓ devnet tx (direct): ${txSig}`);
-
-    res.setHeader(
-      "PAYMENT-RESPONSE",
-      Buffer.from(JSON.stringify({ paid: true, from: parsed.from })).toString("base64")
-    );
-    res.status(200).json({
-      bundleId:    txSig,
-      txSig,
-      status:      "submitted",
-      message:     "CommitIntent confirmed on devnet (direct RPC)",
-      explorerUrl: `https://explorer.solana.com/tx/${txSig}?cluster=devnet`,
-    });
-  } catch (err: any) {
-    console.error(`[relay] tx failed: ${err.message}`);
-    res.status(500).json({ error: `Tx submission failed: ${err.message}` });
   }
+
+  if (lastErr || !txSig) {
+    console.error(`[relay] tx failed: ${lastErr?.message}`);
+    res.status(500).json({ error: `Tx submission failed: ${lastErr?.message}` });
+    return;
+  }
+
+  console.log(`[relay] ✓ devnet tx (direct): ${txSig}`);
+  res.setHeader(
+    "PAYMENT-RESPONSE",
+    Buffer.from(JSON.stringify({ paid: true, from: parsed.from })).toString("base64")
+  );
+  res.status(200).json({
+    bundleId:    txSig,
+    txSig,
+    status:      "submitted",
+    message:     "CommitIntent confirmed on devnet (direct RPC)",
+    explorerUrl: `https://explorer.solana.com/tx/${txSig}?cluster=devnet`,
+  });
 });
 
 // ── GET /tip-estimate ──────────────────────────────────────────────────────────

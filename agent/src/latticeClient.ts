@@ -26,7 +26,10 @@ export const PROGRAM_ID   = new PublicKey("AW8zeS7iHmeAU5NUd2a57Uh9qzCUoshWV19oB
 export const POOL_SEED    = Buffer.from("batch_pool");
 export const VAULT_SEED   = Buffer.from("vault");
 
-const IDL_PATH = path.resolve(__dirname, "../../anchor/target/idl/lattice.json");
+// Load the canonical, git-tracked IDL (web/anchor-idl). The anchor/target/idl
+// copy is a gitignored build artifact and can drift stale (it was missing the
+// tokenInMint/tokenOutMint accounts, which broke CommitIntent).
+const IDL_PATH = path.resolve(__dirname, "../../web/anchor-idl/lattice.json");
 
 export function loadIdl() {
   return JSON.parse(fs.readFileSync(IDL_PATH, "utf8"));
@@ -55,6 +58,7 @@ export interface CommitParams {
   payer:        Keypair;
   pool:         PublicKey;
   tokenIn:      PublicKey;
+  tokenOut:     PublicKey;
   vault:        PublicKey;
   payerAta:     PublicKey;
   commitHash:   number[];   // 32 bytes
@@ -90,6 +94,8 @@ export async function buildCommitTx(
     .accounts({
       payer:             params.payer.publicKey,
       pool:              params.pool,
+      tokenInMint:       params.tokenIn,
+      tokenOutMint:      params.tokenOut,
       payerTokenAccount: params.payerAta,
       mint:              params.tokenIn,
       vault:             params.vault,

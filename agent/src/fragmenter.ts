@@ -4,6 +4,7 @@ export interface ParentOrder {
   totalAmount: number; // in base units (e.g. USDC with 6 decimals)
   limitPrice: number;  // in USDC per SOL, or price-per-unit
   horizonSeconds: number;
+  scanMint?: string;   // real mint Bhairab risk-scans before committing (defaults by tokenOut symbol)
 }
 
 export interface Fragment {

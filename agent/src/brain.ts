@@ -25,6 +25,7 @@ import {
 
 import { twapFragment, ParentOrder } from "./fragmenter";
 import { relayCommit } from "./pay";
+import { scanToken } from "./scan";
 import {
   DEVNET_RPC,
   PROGRAM_ID,
@@ -156,7 +157,10 @@ async function bootstrapPool(
   const cacheFile = path.resolve(__dirname, "../../keys/agent-demo-mints.json");
   let tokenIn: PublicKey, tokenOut: PublicKey;
 
-  if (fs.existsSync(cacheFile)) {
+  // A batch-auction pool's commit window is short-lived, so a reused pool goes
+  // stale fast. Default to fresh mints each run (→ fresh pool with an open commit
+  // window) so the demo is repeatable. Set REUSE_MINTS=1 to reuse cached mints.
+  if (process.env.REUSE_MINTS === "1" && fs.existsSync(cacheFile)) {
     const cached = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
     tokenIn  = new PublicKey(cached.tokenIn);
     tokenOut = new PublicKey(cached.tokenOut);
@@ -210,6 +214,43 @@ async function bootstrapPool(
 }
 
 // ---------------------------------------------------------------------------
+// Bhairab risk gate — the SCAN step (think → SCAN → pay → act)
+// ---------------------------------------------------------------------------
+// The on-chain demo trades throwaway devnet mints (no market data), so the agent
+// scans the REAL asset it intends to acquire. A "stop" verdict aborts the trade
+// before any order touches Lattice.
+const KNOWN_MINTS: Record<string, string> = {
+  wSOL: "So11111111111111111111111111111111111111112",
+  SOL:  "So11111111111111111111111111111111111111112",
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+};
+
+async function scanGate(order: ParentOrder): Promise<boolean> {
+  const mint = order.scanMint ?? KNOWN_MINTS[order.tokenOut];
+  if (!mint) {
+    console.log(`[scan] No known mint for ${order.tokenOut} — skipping risk scan`);
+    return true;
+  }
+  console.log(`\n[scan] Bhairab pre-trade risk check on ${order.tokenOut} (${mint.slice(0, 8)}…)…`);
+  try {
+    const r = await scanToken(mint, "buy");
+    const mark = r.verdict === "stop" ? "⛔" : r.verdict === "caution" ? "⚠️ " : "✓";
+    console.log(`[scan] ${mark} ${r.verdict.toUpperCase()}  (${r.verdictSource}, ${r.latencyMs}ms) — ${r.summary}`);
+    r.reasons.forEach((x) => console.log(`        • ${x}`));
+    if (r.verdict === "stop") {
+      console.log(`\n[scan] ⛔ Bhairab BLOCKED this trade. No order will be committed to Lattice.`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    // Fail-CLOSED: a guardian that cannot verify safety must not trade. If the
+    // scan is unreachable after retries, abort rather than risk a bad buy.
+    console.error(`[scan] ⛔ scan failed after retries (${(e as Error).message}) — BLOCKING trade (fail-closed).`);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 async function runAgent(order: ParentOrder) {
@@ -217,6 +258,18 @@ async function runAgent(order: ParentOrder) {
   console.log("  Lattice Autonomous Agent  (Day 3)");
   console.log("═══════════════════════════════════════");
   console.log(JSON.stringify({ order }, null, 2));
+
+  // ── Bhairab risk gate (SCAN) — runs FIRST, before any LLM call or chain work.
+  // The guardian checks the real asset the agent intends to buy; a honeypot/rug
+  // verdict aborts the trade before a single order touches Lattice.
+  const safe = await scanGate(order);
+  if (!safe) {
+    console.log("\n═══════════════════════════════════════");
+    console.log("  Trade ABORTED by Bhairab guardian. 0 fragments committed.");
+    console.log("  The agent refused to buy a flagged token — no MEV, no loss.");
+    console.log("═══════════════════════════════════════\n");
+    return;
+  }
 
   const connection = new Connection(DEVNET_RPC, "confirmed");
   const alice = loadKeypair(ALICE_KEYPAIR_PATH);
@@ -266,6 +319,7 @@ async function runAgent(order: ParentOrder) {
       payer:      alice,
       pool,
       tokenIn,
+      tokenOut,
       vault,
       payerAta,
       commitHash,
@@ -316,13 +370,18 @@ async function runAgent(order: ParentOrder) {
   console.log(JSON.stringify({ telemetry }, null, 2));
 }
 
-// Demo order: buy 1,000 USDC of wSOL over 30 seconds
+// Demo order: buy 1,000 USDC of wSOL over 30 seconds.
+// Bhairab scans the real asset first. Set DEMO_HONEYPOT=1 to point the scan at a
+// live freeze-authority honeypot and watch the agent refuse to trade.
 const demoOrder: ParentOrder = {
   tokenIn:        "USDC",
   tokenOut:       "wSOL",
   totalAmount:    1_000 * 1_000_000,  // 1,000 USDC (6 decimals)
   limitPrice:     150,                 // 150 USDC per SOL
   horizonSeconds: 30,
+  scanMint:       process.env.DEMO_HONEYPOT === "1"
+    ? "831f8cKgPcS7gnZSA9RBTF5uTDAtkKs7kuiYs4M1fdkA"  // live CAT honeypot → STOP
+    : undefined,                                       // defaults to wSOL → PROCEED
 };
 
 runAgent(demoOrder).catch(console.error);
