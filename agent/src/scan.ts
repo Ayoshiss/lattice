@@ -13,6 +13,11 @@ dotenv.config();
 const BHAIRAB_SCAN_URL =
   process.env.BHAIRAB_SCAN_URL ?? "https://tao-gateway.fly.dev/v1/risk/scan";
 
+// Per-attempt timeout. A guardian that hangs is as dangerous as one that's wrong:
+// it stalls the agent indefinitely. We bound each attempt so a slow scan surfaces
+// as a retryable error and, if all retries exhaust, fails closed at the caller.
+const SCAN_TIMEOUT_MS = Number(process.env.BHAIRAB_SCAN_TIMEOUT_MS ?? 6000);
+
 export interface ScanResult {
   verdict: "proceed" | "caution" | "stop";
   confidence: number;
@@ -30,23 +35,32 @@ export interface ScanResult {
   latencyMs: number;
 }
 
-/** Scan a Solana token mint for pre-trade risk. Retries transient failures. */
+/** Scan a Solana token mint for pre-trade risk. Retries transient failures,
+ *  and bounds each attempt with a timeout so a hung guardian can't stall the agent. */
 export async function scanToken(mint: string, action = "buy"): Promise<ScanResult> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
     try {
       const res = await fetch(BHAIRAB_SCAN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chain: "solana", token: mint, action }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         throw new Error(`Bhairab scan failed (HTTP ${res.status}): ${await res.text()}`);
       }
       return (await res.json()) as ScanResult;
     } catch (e) {
-      lastErr = e;
+      lastErr =
+        e instanceof Error && e.name === "AbortError"
+          ? new Error(`Bhairab scan timed out after ${SCAN_TIMEOUT_MS}ms`)
+          : e;
       if (attempt < 3) await new Promise((r) => setTimeout(r, 800 * attempt));
+    } finally {
+      clearTimeout(timer);
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));

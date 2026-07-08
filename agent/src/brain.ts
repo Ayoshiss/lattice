@@ -1,18 +1,21 @@
 /**
- * Lattice Autonomous Liquidity Agent — Day 3
+ * Lattice Autonomous Liquidity Agent
  *
- * Driven by an LLM. Given a parent order it:
- *   1. Asks the LLM to reason about TWAP fragmentation
- *   2. Splits into N equal fragments
- *   3. For each fragment:
+ * The full think → scan → pay → act loop, from one wallet:
+ *   1. THINK — Bhairab (routed to Bittensor SN64) reasons about fragmentation
+ *   2. SCAN  — Bhairab risk-scans the asset; a honeypot verdict aborts the trade
+ *   3. Splits the parent order into N fragments
+ *   4. For each fragment:
  *      a. Builds a real CommitIntent tx (Anchor)
  *      b. POSTs to relay — relay returns 402
- *      c. Signs payment envelope with ed25519
- *      d. Retries — relay verifies, submits tx to devnet
- *   4. Prints structured telemetry
+ *      c. Signs payment envelope with ed25519 (PAY)
+ *      d. Retries — relay verifies, submits tx to devnet (ACT)
+ *   5. Prints structured telemetry
+ *
+ * Both the reasoning and the risk verdict run on Bittensor via Bhairab, so the
+ * whole loop is Bittensor-powered end to end.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -46,82 +49,95 @@ dotenv.config();
 const ALICE_KEYPAIR_PATH = path.resolve(__dirname, "../../keys/alice.json");
 
 // ---------------------------------------------------------------------------
-// LLM reasoning
+// THINK — reasoning via Bhairab (routed to Bittensor SN64)
 // ---------------------------------------------------------------------------
-// Support direct API or OpenRouter
-const client = process.env.OPENROUTER_API_KEY
-  ? new Anthropic({
-      apiKey:  process.env.OPENROUTER_API_KEY,
-      baseURL: "https://openrouter.ai/api/v1",
-      defaultHeaders: {
-        "HTTP-Referer": "https://lattice.xyz",
-        "X-Title":      "Lattice Agent",
-      },
-    })
-  : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// The agent's reasoning runs on Bittensor through Bhairab's OpenAI-compatible
+// gateway. `model: "auto"` opts into Bhairab's dynamic router, which serves the
+// prompt from a Chutes SN64 model. Reasoning models can wrap the answer in prose,
+// so we extract the JSON object rather than assuming the whole reply is JSON.
+const BHAIRAB_BASE     = process.env.BHAIRAB_BASE_URL ?? "https://tao-gateway.fly.dev";
+const BHAIRAB_API_KEY  = process.env.BHAIRAB_API_KEY ?? "";
+const THINK_MODEL      = process.env.BHAIRAB_THINK_MODEL ?? "auto";
+const THINK_TIMEOUT_MS = Number(process.env.BHAIRAB_THINK_TIMEOUT_MS ?? 20000);
 
-async function llmReason(order: ParentOrder): Promise<{ rationale: string; n: number; riskNote: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || apiKey === "placeholder" || apiKey === "") {
-    console.log("[brain] No ANTHROPIC_API_KEY — using default TWAP strategy");
-    return {
-      rationale: "TWAP: equal slices minimise market impact. No LLM key configured.",
-      n: 3,
-      riskNote:  "Default strategy — set ANTHROPIC_API_KEY for LLM-guided sizing",
-    };
+interface ThinkResult { rationale: string; n: number; riskNote: string; servedBy: string; }
+
+const DEFAULT_THINK: ThinkResult = {
+  rationale: "TWAP: equal slices across the horizon minimise market impact.",
+  n: 3,
+  riskNote:  "Default strategy.",
+  servedBy:  "default (no Bhairab key)",
+};
+
+/** Pull the first balanced JSON object out of an LLM reply. */
+function extractJson(text: string): any | null {
+  const start = text.indexOf("{");
+  const end   = text.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+async function think(order: ParentOrder): Promise<ThinkResult> {
+  if (!BHAIRAB_API_KEY) {
+    console.log("[think] No BHAIRAB_API_KEY set — using default TWAP strategy.");
+    return DEFAULT_THINK;
   }
 
-  const model = process.env.OPENROUTER_API_KEY
-    ? (process.env.OPENROUTER_MODEL ?? "anthropic/claude-3-haiku")
-    : "claude-haiku-4-5";
-
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), THINK_TIMEOUT_MS);
   try {
-    // Use OpenRouter's OpenAI-compatible endpoint directly (avoids streaming issues)
-    const apiKey  = process.env.OPENROUTER_API_KEY;
-    const useOR   = !!apiKey;
-    const endpoint = useOR
-      ? "https://openrouter.ai/api/v1/chat/completions"
-      : "https://api.anthropic.com/v1/messages";
+    const res = await fetch(`${BHAIRAB_BASE}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": `Bearer ${BHAIRAB_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model:      THINK_MODEL,
+        max_tokens: 400,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are the Lattice autonomous liquidity agent. You split a parent " +
+              "order into N equal TWAP fragments to minimise market impact and MEV. " +
+              'Reply with ONLY a JSON object: {"rationale": string, "n": number (1-5), "riskNote": string}.',
+          },
+          {
+            role: "user",
+            content: `Order: buy ${order.totalAmount / 1e6} USDC of ${order.tokenOut} over ${order.horizonSeconds}s at limit ${order.limitPrice}. How many fragments?`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
 
-    let text = "";
-    if (useOR) {
-      const res = await fetch(endpoint, {
-        method:  "POST",
-        headers: {
-          "Content-Type":  "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer":  "https://lattice.xyz",
-          "X-Title":       "Lattice Agent",
-        },
-        body: JSON.stringify({
-          model:       process.env.OPENROUTER_MODEL ?? "anthropic/claude-3-haiku",
-          max_tokens:  256,
-          stream:      false,
-          messages: [
-            { role: "system", content: `You are the Lattice autonomous liquidity agent. Output ONLY a JSON object: { "rationale": string, "n": number, "riskNote": string }` },
-            { role: "user",   content: `Order: buy ${order.totalAmount / 1e6} USDC of ${order.tokenOut} over ${order.horizonSeconds}s at limit ${order.limitPrice}` },
-          ],
-        }),
-      });
-      const json = await res.json() as any;
-      text = json?.choices?.[0]?.message?.content ?? "";
-    } else {
-      const { content } = await client.messages.create({
-        model:      "claude-haiku-4-5",
-        max_tokens: 256,
-        system:     `You are the Lattice autonomous liquidity agent. Output ONLY a JSON object: { "rationale": string, "n": number, "riskNote": string }`,
-        messages:   [{ role: "user", content: `Order: buy ${order.totalAmount / 1e6} USDC of ${order.tokenOut} over ${order.horizonSeconds}s at limit ${order.limitPrice}` }],
-      });
-      text = (content?.find((c: any) => c.type === "text") as any)?.text ?? "";
+    if (!res.ok) {
+      throw new Error(`Bhairab think failed (HTTP ${res.status}): ${await res.text()}`);
     }
 
-    console.log("[brain] LLM text:", text.slice(0, 150));
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed  = JSON.parse(cleaned);
-    return { rationale: parsed.rationale ?? "", n: Number(parsed.n) || 3, riskNote: parsed.riskNote ?? "" };
+    const routedSubnet = res.headers.get("x-routed-subnet") || "Bittensor SN64";
+    const json = (await res.json()) as any;
+    const text = json?.choices?.[0]?.message?.content ?? "";
+    const servedModel = json?.model ?? "";
+    const parsed = extractJson(text);
+    if (!parsed) throw new Error(`could not parse JSON from reply: ${text.slice(0, 120)}`);
+
+    return {
+      rationale: String(parsed.rationale ?? DEFAULT_THINK.rationale),
+      n:         Number(parsed.n) || 3,
+      riskNote:  String(parsed.riskNote ?? ""),
+      servedBy:  `${routedSubnet}${servedModel ? ` · ${servedModel}` : ""}`,
+    };
   } catch (e: any) {
-    console.warn("[brain] LLM failed:", e.message);
-    return { rationale: "TWAP: equal slices across horizon", n: 3, riskNote: "" };
+    console.warn(`[think] Bhairab reasoning failed (${e.message}) — falling back to default TWAP.`);
+    return { ...DEFAULT_THINK, servedBy: "default (Bhairab unreachable)" };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -277,10 +293,12 @@ async function runAgent(order: ParentOrder) {
 
   await ensureFunded(connection, alice.publicKey, 500_000_000);
 
-  // ── LLM reasoning ────────────────────────────────────────────────────
-  console.log("\n[brain] Asking LLM for fragmentation strategy…");
-  const reasoning = await llmReason(order);
-  console.log("[brain] LLM:", JSON.stringify(reasoning, null, 2));
+  // ── THINK: reasoning via Bhairab → Bittensor ─────────────────────────
+  console.log("\n[think] Asking Bhairab (Bittensor SN64) for a fragmentation strategy…");
+  const reasoning = await think(order);
+  console.log(`[think] served by: ${reasoning.servedBy}`);
+  console.log(`[think] n=${reasoning.n} — ${reasoning.rationale}`);
+  if (reasoning.riskNote) console.log(`[think] risk note: ${reasoning.riskNote}`);
 
   const n = Math.min(Math.max(reasoning.n ?? 3, 1), 5); // cap at 5 for demo
 
