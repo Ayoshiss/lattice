@@ -13,10 +13,16 @@ dotenv.config();
 const BHAIRAB_SCAN_URL =
   process.env.BHAIRAB_SCAN_URL ?? "https://tao-gateway.fly.dev/v1/risk/scan";
 
+// An API key authenticates the scan against the keyed tier, which isn't subject to
+// the free tier's per-IP rate limit. When present we send it; the scan still works
+// keyless, it's just more rate-limit-resilient under load.
+const BHAIRAB_API_KEY = process.env.BHAIRAB_API_KEY ?? "";
+
 // Per-attempt timeout. A guardian that hangs is as dangerous as one that's wrong:
 // it stalls the agent indefinitely. We bound each attempt so a slow scan surfaces
 // as a retryable error and, if all retries exhaust, fails closed at the caller.
 const SCAN_TIMEOUT_MS = Number(process.env.BHAIRAB_SCAN_TIMEOUT_MS ?? 6000);
+const SCAN_MAX_ATTEMPTS = Number(process.env.BHAIRAB_SCAN_ATTEMPTS ?? 4);
 
 export interface ScanResult {
   verdict: "proceed" | "caution" | "stop";
@@ -38,14 +44,17 @@ export interface ScanResult {
 /** Scan a Solana token mint for pre-trade risk. Retries transient failures,
  *  and bounds each attempt with a timeout so a hung guardian can't stall the agent. */
 export async function scanToken(mint: string, action = "buy"): Promise<ScanResult> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (BHAIRAB_API_KEY) headers["Authorization"] = `Bearer ${BHAIRAB_API_KEY}`;
+
   let lastErr: unknown;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= SCAN_MAX_ATTEMPTS; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
     try {
       const res = await fetch(BHAIRAB_SCAN_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ chain: "solana", token: mint, action }),
         signal: controller.signal,
       });
@@ -58,7 +67,7 @@ export async function scanToken(mint: string, action = "buy"): Promise<ScanResul
         e instanceof Error && e.name === "AbortError"
           ? new Error(`Bhairab scan timed out after ${SCAN_TIMEOUT_MS}ms`)
           : e;
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 800 * attempt));
+      if (attempt < SCAN_MAX_ATTEMPTS) await new Promise((r) => setTimeout(r, 800 * attempt));
     } finally {
       clearTimeout(timer);
     }

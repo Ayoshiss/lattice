@@ -60,6 +60,18 @@ const BHAIRAB_API_KEY  = process.env.BHAIRAB_API_KEY ?? "";
 const THINK_MODEL      = process.env.BHAIRAB_THINK_MODEL ?? "auto";
 const THINK_TIMEOUT_MS = Number(process.env.BHAIRAB_THINK_TIMEOUT_MS ?? 20000);
 
+// The gateway keeps a Groq backstop so the agent never stalls when a subnet is
+// momentarily slow. But decentralized reasoning is the whole point, so the agent
+// PREFERS a Bittensor-served result: if a call falls back to Groq, it retries a
+// few times to get Bittensor, and only accepts the backstop as a last resort.
+const PREFER_BITTENSOR = (process.env.BHAIRAB_PREFER_BITTENSOR ?? "1") !== "0";
+const THINK_ATTEMPTS   = Number(process.env.BHAIRAB_THINK_ATTEMPTS ?? 3);
+
+/** True when the reasoning was served by a Bittensor subnet (not the Groq backstop). */
+function servedByBittensor(servedBy: string): boolean {
+  return /SN64|Chutes/i.test(servedBy);
+}
+
 interface ThinkResult { rationale: string; n: number; riskNote: string; servedBy: string; }
 
 const DEFAULT_THINK: ThinkResult = {
@@ -81,12 +93,8 @@ function extractJson(text: string): any | null {
   }
 }
 
-async function think(order: ParentOrder): Promise<ThinkResult> {
-  if (!BHAIRAB_API_KEY) {
-    console.log("[think] No BHAIRAB_API_KEY set — using default TWAP strategy.");
-    return DEFAULT_THINK;
-  }
-
+/** One reasoning call to Bhairab. Returns null on a transient/parse failure. */
+async function thinkOnce(order: ParentOrder): Promise<ThinkResult | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), THINK_TIMEOUT_MS);
   try {
@@ -127,18 +135,48 @@ async function think(order: ParentOrder): Promise<ThinkResult> {
     const parsed = extractJson(text);
     if (!parsed) throw new Error(`could not parse JSON from reply: ${text.slice(0, 120)}`);
 
+    // x-routed-subnet already embeds the model (e.g. "SN64-Chutes/<model>"), so only
+    // append the served model when it isn't already part of the routed-subnet string.
+    const servedBy =
+      !servedModel || routedSubnet.includes(servedModel)
+        ? routedSubnet
+        : `${routedSubnet} · ${servedModel}`;
     return {
       rationale: String(parsed.rationale ?? DEFAULT_THINK.rationale),
       n:         Number(parsed.n) || 3,
       riskNote:  String(parsed.riskNote ?? ""),
-      servedBy:  `${routedSubnet}${servedModel ? ` · ${servedModel}` : ""}`,
+      servedBy,
     };
   } catch (e: any) {
-    console.warn(`[think] Bhairab reasoning failed (${e.message}) — falling back to default TWAP.`);
-    return { ...DEFAULT_THINK, servedBy: "default (Bhairab unreachable)" };
+    console.warn(`[think] reasoning attempt failed (${e.message}).`);
+    return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function think(order: ParentOrder): Promise<ThinkResult> {
+  if (!BHAIRAB_API_KEY) {
+    console.log("[think] No BHAIRAB_API_KEY set — using default TWAP strategy.");
+    return DEFAULT_THINK;
+  }
+
+  let last: ThinkResult | null = null;
+  for (let attempt = 1; attempt <= THINK_ATTEMPTS; attempt++) {
+    const r = await thinkOnce(order);
+    if (r) {
+      last = r;
+      // Accept immediately on Bittensor; otherwise keep retrying to prefer the
+      // decentralized path, taking the Groq backstop only on the final attempt.
+      if (!PREFER_BITTENSOR || servedByBittensor(r.servedBy) || attempt === THINK_ATTEMPTS) {
+        return r;
+      }
+      console.log(`[think] served by ${r.servedBy} — preferring Bittensor, retrying (${attempt}/${THINK_ATTEMPTS})…`);
+    }
+    if (attempt < THINK_ATTEMPTS) await new Promise((rs) => setTimeout(rs, 500));
+  }
+
+  return last ?? { ...DEFAULT_THINK, servedBy: "default (Bhairab unreachable)" };
 }
 
 // ---------------------------------------------------------------------------

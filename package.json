@@ -12,8 +12,8 @@
     "uuid": "^8.3.2"
   },
   "scripts": {
-    "relay": "yarn workspace relay dev",
-    "agent": "yarn workspace agent start",
+    "relay": "yarn workspace @lattice/relay dev",
+    "agent": "yarn workspace @lattice/agent start",
     "web": "yarn workspace web dev",
     "test:anchor": "cd anchor && anchor test"
   }
